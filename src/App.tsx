@@ -369,6 +369,7 @@ export default function App() {
               <InmateFormView
                 inmate={selectedInmate}
                 facilities={facilities}
+                language={language}
                 onBack={handleBackToList}
                 onUpdateInmate={handleUpdateInmate}
                 onOpenTransferModal={inm => setTransferInmate(inm)}

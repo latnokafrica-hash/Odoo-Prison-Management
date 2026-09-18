@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Inmate, PrisonFacility, SentenceRecord, RemissionLog, GratuityTransaction, UserRole } from '../../types';
+import { Inmate, PrisonFacility, SentenceRecord, RemissionLog, GratuityTransaction, UserRole, Language } from '../../types';
 import { USER_ROLES } from '../../data/rolesData';
+import { MedicalIntakeView } from './MedicalIntakeView';
 import { 
   ArrowLeft, 
   Building2, 
@@ -26,12 +27,16 @@ import {
   HeartHandshake, 
   LogOut, 
   Car, 
-  AlertCircle 
+  AlertCircle,
+  Stethoscope,
+  Activity,
+  HeartPulse
 } from 'lucide-react';
 
 interface InmateFormViewProps {
   inmate: Inmate;
   facilities: PrisonFacility[];
+  language?: Language;
   onBack: () => void;
   onUpdateInmate: (updated: Inmate) => void;
   onOpenTransferModal: (inmate: Inmate) => void;
@@ -43,6 +48,7 @@ interface InmateFormViewProps {
 export const InmateFormView: React.FC<InmateFormViewProps> = ({
   inmate,
   facilities,
+  language = 'en',
   onBack,
   onUpdateInmate,
   onOpenTransferModal,
@@ -50,7 +56,7 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
   onOpenDischargeModal,
   currentUserRole = 'superintendent'
 }) => {
-  const [activeTab, setActiveTab] = useState<'intake' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights'>('sentence');
+  const [activeTab, setActiveTab] = useState<'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights'>('sentence');
   const [newChatterNote, setNewChatterNote] = useState('');
   const [chatterType, setChatterType] = useState<'log_note' | 'activity'>('log_note');
 
@@ -415,6 +421,25 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
               <div className="text-[10px] text-slate-500">Mandela Rules</div>
             </div>
           </button>
+
+          {/* Smart Button 6: Medical Intake & Clinical Status */}
+          <button 
+            onClick={() => setActiveTab('medical')}
+            className="flex items-center space-x-2 px-3 py-1.5 rounded border border-teal-200 bg-teal-50/40 hover:bg-teal-50 text-left transition-colors"
+          >
+            <Stethoscope className="w-4 h-4 text-teal-600" />
+            <div>
+              <div className="text-[11px] font-bold text-teal-900 leading-none flex items-center gap-1">
+                <span>Clinical Intake</span>
+                {inmate.medicalIntake?.allergies && inmate.medicalIntake.allergies.length > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" title="Active allergies flagged" />
+                )}
+              </div>
+              <div className="text-[10px] text-teal-700">
+                {inmate.medicalIntake?.vaccinations ? `${inmate.medicalIntake.vaccinations.length} Vaccines` : 'Screening Ready'}
+              </div>
+            </div>
+          </button>
         </div>
 
         {/* Inmate Profile Title & Core Demographics */}
@@ -575,6 +600,23 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
           >
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>Human Rights & Mandela Audits</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('medical')}
+            className={`py-2.5 px-3 border-b-2 flex items-center gap-1.5 transition-colors ${
+              activeTab === 'medical'
+                ? 'border-[#714B67] text-[#714B67] font-bold bg-white'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Stethoscope className="w-3.5 h-3.5 text-teal-600" />
+            <span>Medical Intake, Vaccines & Allergies</span>
+            {inmate.medicalIntake?.allergies && inmate.medicalIntake.allergies.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-full border border-rose-200">
+                {inmate.medicalIntake.allergies.length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -1027,9 +1069,18 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
                 </div>
 
                 <div className="border border-slate-200 rounded-lg p-3 space-y-2">
-                  <h4 className="font-bold text-slate-800 uppercase text-[11px] border-b border-slate-100 pb-1">
-                    Emergency Contact & Medical Notes
-                  </h4>
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-1">
+                    <h4 className="font-bold text-slate-800 uppercase text-[11px]">
+                      Emergency Contact & Medical Notes
+                    </h4>
+                    <button
+                      onClick={() => setActiveTab('medical')}
+                      className="text-[10px] text-teal-700 hover:text-teal-900 font-bold flex items-center gap-1"
+                    >
+                      <Stethoscope className="w-3 h-3" />
+                      <span>Open Medical Dossier →</span>
+                    </button>
+                  </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Contact Person:</span>
                     <span className="font-medium">{inmate.emergencyContact.name} ({inmate.emergencyContact.relationship})</span>
@@ -1255,6 +1306,16 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
                 </table>
               </div>
             </div>
+          )}
+
+          {/* TAB 7: MEDICAL INTAKE, VACCINATIONS & ALLERGIES */}
+          {activeTab === 'medical' && (
+            <MedicalIntakeView
+              inmate={inmate}
+              language={language}
+              currentUserRole={currentUserRole}
+              onUpdateInmate={onUpdateInmate}
+            />
           )}
 
         </div>

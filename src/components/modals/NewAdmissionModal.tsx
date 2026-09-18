@@ -152,6 +152,60 @@ export const NewAdmissionModal: React.FC<NewAdmissionModalProps> = ({
         relationship: 'Next of Kin',
         phone: '+254 712 345 678'
       },
+      medicalIntake: {
+        id: `med-${Date.now()}`,
+        screeningDate: new Date().toISOString().split('T')[0],
+        screeningTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        examiningOfficer: 'Dr. Sarah Nduta, MD',
+        medicalOfficerTitle: 'Intake Medical Officer',
+        licenseNumber: 'KMPDC-REG-48920',
+        facilityName: selectedFacility.name,
+        fitnessForDetention: 'fit_normal_custody',
+        vitals: {
+          bloodPressureSystolic: 120,
+          bloodPressureDiastolic: 80,
+          heartRateBpm: 72,
+          respiratoryRate: 16,
+          bodyTemperatureC: 36.6,
+          oxygenSaturationPercent: 99,
+          weightKg: 70,
+          heightCm: 175,
+          bmi: 22.9
+        },
+        initialScreeningNotes: 'Initial intake physical screening conducted upon arrival from court. Alert and responsive. No fresh bodily marks, abrasions, or signs of acute distress. Vitals within normal physiological limits. Nelson Mandela Rule 30 initial triage completed.',
+        chronicConditions: [],
+        mentalHealthScreening: {
+          suicideRiskLevel: 'none',
+          substanceWithdrawalRisk: false,
+          priorPsychiatricHistory: false,
+          observations: 'Oriented x3. Denies suicide or depression ideation.'
+        },
+        communicableDiseaseScreening: {
+          tbSymptomatic: false,
+          tbChestXRayStatus: 'clear',
+          covidStatus: 'vaccinated',
+          hepatitisScreened: true,
+          isolationRecommended: false
+        },
+        vaccinations: [
+          {
+            id: `vax-${Date.now()}-1`,
+            vaccineName: 'Tetanus Toxoid (TT Intake Booster)',
+            dateAdministered: new Date().toISOString().split('T')[0],
+            doseNumber: 1,
+            batchLotNumber: `TT-LOT-${Math.floor(1000 + Math.random() * 9000)}`,
+            administeredBy: 'Nurse Officer On Duty',
+            clinicFacility: `${selectedFacility.name} Clinic`,
+            status: 'completed',
+            notes: 'Intake routine prophylaxis.'
+          }
+        ],
+        allergies: [],
+        currentMedications: [],
+        dietaryMedicalRecommendation: 'Standard institutional ration.',
+        doctorSignOff: true,
+        doctorSignedAt: new Date().toISOString().replace('T', ' ').slice(0, 16)
+      },
       chatterLogs: [
         {
           id: `ch-${Date.now()}`,

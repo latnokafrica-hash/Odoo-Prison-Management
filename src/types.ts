@@ -248,6 +248,82 @@ export interface HumanRightsAudit {
   recommendations: string;
 }
 
+export interface VaccinationRecord {
+  id: string;
+  vaccineName: string;
+  dateAdministered: string;
+  doseNumber: number; // e.g. 1, 2, Booster
+  batchLotNumber: string;
+  administeredBy: string;
+  clinicFacility: string;
+  expiryDate?: string;
+  status: 'completed' | 'scheduled' | 'refused';
+  notes?: string;
+}
+
+export interface AllergyRecord {
+  id: string;
+  allergen: string;
+  type: 'drug' | 'food' | 'environmental' | 'other';
+  severity: 'mild' | 'moderate' | 'severe' | 'anaphylactic';
+  reaction: string; // e.g., "Hives, bronchospasm", "Severe anaphylaxis"
+  diagnosedDate?: string;
+  recordedBy: string;
+  emergencyAction?: string; // e.g., "EpiPen carrier", "No penicillin products"
+}
+
+export interface VitalSigns {
+  bloodPressureSystolic: number;
+  bloodPressureDiastolic: number;
+  heartRateBpm: number;
+  respiratoryRate: number;
+  bodyTemperatureC: number;
+  oxygenSaturationPercent: number;
+  weightKg: number;
+  heightCm: number;
+  bmi: number;
+}
+
+export interface MedicalIntakeRecord {
+  id: string;
+  screeningDate: string;
+  screeningTime: string;
+  examiningOfficer: string;
+  medicalOfficerTitle: string;
+  licenseNumber: string;
+  facilityName: string;
+  fitnessForDetention: 'fit_normal_custody' | 'fit_with_restrictions' | 'unfit_requires_hospitalization' | 'quarantine_required';
+  vitals: VitalSigns;
+  initialScreeningNotes: string;
+  chronicConditions: string[];
+  mentalHealthScreening: {
+    suicideRiskLevel: 'none' | 'low' | 'moderate' | 'high_observation';
+    substanceWithdrawalRisk: boolean;
+    priorPsychiatricHistory: boolean;
+    observations: string;
+  };
+  communicableDiseaseScreening: {
+    tbSymptomatic: boolean;
+    tbChestXRayStatus: 'clear' | 'pending' | 'abnormal_referred';
+    covidStatus: 'negative' | 'positive' | 'vaccinated';
+    hepatitisScreened: boolean;
+    isolationRecommended: boolean;
+  };
+  vaccinations: VaccinationRecord[];
+  allergies: AllergyRecord[];
+  currentMedications: {
+    name: string;
+    dosage: string;
+    frequency: string;
+    route: 'oral' | 'injection' | 'inhaler' | 'topical';
+    heldByClinic: boolean; // Mandela rule: controlled dispensing
+  }[];
+  dietaryMedicalRecommendation: string;
+  followUpAppointmentDate?: string;
+  doctorSignOff: boolean;
+  doctorSignedAt?: string;
+}
+
 export interface DischargeClearance {
   id: string;
   inmateId: string;
@@ -316,6 +392,9 @@ export interface Inmate {
     relationship: string;
     phone: string;
   };
+
+  // Medical Intake Screening & Clinical Profile (Odoo medical.intake)
+  medicalIntake?: MedicalIntakeRecord;
   
   // Discharge
   dischargeRecord?: DischargeClearance;

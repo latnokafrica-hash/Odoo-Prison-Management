@@ -1,4 +1,5 @@
 import { PrisonFacility, Inmate } from '../types';
+import { INITIAL_MEDICAL_INTAKES } from './medicalData';
 
 export const INITIAL_FACILITIES: PrisonFacility[] = [
   {
@@ -255,6 +256,7 @@ export const INITIAL_INMATES: Inmate[] = [
       }
     ],
     dietaryMedicalNotes: 'Asthmatic. Salbutamol inhaler registered with Medical Bay.',
+    medicalIntake: INITIAL_MEDICAL_INTAKES['inm-101'],
     emergencyContact: {
       name: 'Esther Chemutai',
       relationship: 'Sister',
@@ -384,6 +386,7 @@ export const INITIAL_INMATES: Inmate[] = [
         recommendations: 'Remand classification confirmed. Access to defense counsel regular.'
       }
     ],
+    medicalIntake: INITIAL_MEDICAL_INTAKES['inm-102'],
     emergencyContact: {
       name: 'Beatrice Omondi',
       relationship: 'Spouse',
@@ -667,6 +670,7 @@ export const INITIAL_INMATES: Inmate[] = [
       gatePassNumber: 'GP-LWC-2026-089',
       status: 'checklist_in_progress'
     },
+    medicalIntake: INITIAL_MEDICAL_INTAKES['inm-104'],
     emergencyContact: {
       name: 'Daniel Otieno',
       relationship: 'Son',
