@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Court Hearing Calendar View -->
+        <record id="view_prison_court_hearing_calendar" model="ir.ui.view">
+            <field name="name">prison.court.hearing.calendar</field>
+            <field name="model">prison.court.hearing</field>
+            <field name="arch" type="xml">
+                <calendar string="Judicial Court Scheduling Calendar"
+                          date_start="hearing_datetime_start"
+                          date_stop="hearing_datetime_stop"
+                          mode="week"
+                          color="status"
+                          event_open_popup="true"
+                          quick_create="false">
+                    <field name="inmate_id" avatar_field="photo"/>
+                    <field name="case_number"/>
+                    <field name="court_name"/>
+                    <field name="hearing_type"/>
+                    <field name="court_mode"/>
+                    <field name="status"/>
+                </calendar>
+            </field>
+        </record>
+
+        <!-- Update Court Hearing Action to include Calendar mode -->
+        <record id="prison_management.action_prison_court_hearing" model="ir.actions.act_window">
+            <field name="view_mode">calendar,list,form</field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Meal Menu Tree View -->
+        <record id="view_prison_meal_menu_tree" model="ir.ui.view">
+            <field name="name">prison.meal.menu.list</field>
+            <field name="model">prison.meal.menu</field>
+            <field name="arch" type="xml">
+                <list string="Inmate Nutritional Meal Menus">
+                    <field name="code"/>
+                    <field name="name"/>
+                    <field name="meal_type" widget="badge"/>
+                    <field name="diet_category" widget="badge"/>
+                    <field name="calories_kcal"/>
+                    <field name="protein_grams"/>
+                    <field name="certified_by_nutritionist"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Meal Menu Form View -->
+        <record id="view_prison_meal_menu_form" model="ir.ui.view">
+            <field name="name">prison.meal.menu.form</field>
+            <field name="model">prison.meal.menu</field>
+            <field name="arch" type="xml">
+                <form string="Nutritional Meal Menu">
+                    <sheet>
+                        <div class="oe_title">
+                            <label for="name" string="Meal Menu Title"/>
+                            <h1><field name="name" placeholder="e.g. High-Protein Beef Stew with Maize &amp; Greens"/></h1>
+                            <h3><field name="code" placeholder="e.g. MENU-LUNCH-STD-01"/></h3>
+                        </div>
+                        <group>
+                            <group string="Service &amp; Dietary Category">
+                                <field name="meal_type"/>
+                                <field name="diet_category"/>
+                                <field name="certified_by_nutritionist"/>
+                                <field name="active"/>
+                            </group>
+                            <group string="Nutritional Standards">
+                                <field name="calories_kcal"/>
+                                <field name="protein_grams"/>
+                                <field name="allergens" placeholder="e.g. Gluten, Dairy"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Ingredients &amp; Recipe Preparation">
+                                <field name="ingredients_description" placeholder="Specify statutory dietary components compliant with Nelson Mandela Rules Rule 22..."/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Meal Distribution Tree View -->
+        <record id="view_prison_meal_distribution_tree" model="ir.ui.view">
+            <field name="name">prison.meal.distribution.list</field>
+            <field name="model">prison.meal.distribution</field>
+            <field name="arch" type="xml">
+                <list string="Daily Meal Batch Distributions" decoration-info="status == 'prep'" decoration-warning="status == 'dispatched'" decoration-success="status == 'served'">
+                    <field name="name"/>
+                    <field name="distribution_date"/>
+                    <field name="facility_id"/>
+                    <field name="block_id"/>
+                    <field name="meal_type" widget="badge"/>
+                    <field name="menu_id"/>
+                    <field name="total_rations" sum="Total Meals Served"/>
+                    <field name="standard_portions"/>
+                    <field name="halal_portions"/>
+                    <field name="diabetic_portions"/>
+                    <field name="hygiene_certified"/>
+                    <field name="status" widget="badge"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Meal Distribution Form View -->
+        <record id="view_prison_meal_distribution_form" model="ir.ui.view">
+            <field name="name">prison.meal.distribution.form</field>
+            <field name="model">prison.meal.distribution</field>
+            <field name="arch" type="xml">
+                <form string="Meal Distribution Log">
+                    <header>
+                        <button name="action_dispatch_meals" string="Dispatch to Cell Block" type="object" class="btn-primary" invisible="status != 'prep'"/>
+                        <button name="action_mark_served" string="Mark Served &amp; Counters Closed" type="object" class="btn-success" invisible="status != 'dispatched'"/>
+                        <field name="status" widget="statusbar" statusbar_visible="prep,dispatched,served"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <span class="o_form_label">Distribution Manifest</span>
+                            <h1><field name="name"/></h1>
+                        </div>
+                        <group>
+                            <group string="Service Logistics">
+                                <field name="facility_id"/>
+                                <field name="block_id"/>
+                                <field name="distribution_date"/>
+                                <field name="meal_type"/>
+                                <field name="menu_id"/>
+                            </group>
+                            <group string="Hygiene &amp; Safety Verification">
+                                <field name="food_temperature_celsius"/>
+                                <field name="hygiene_certified"/>
+                                <field name="medical_officer_signoff"/>
+                                <field name="head_chef_guard"/>
+                            </group>
+                        </group>
+
+                        <group string="Dietary Rations Tally Breakdown">
+                            <group>
+                                <field name="standard_portions"/>
+                                <field name="halal_portions"/>
+                                <field name="kosher_portions"/>
+                            </group>
+                            <group>
+                                <field name="diabetic_portions"/>
+                                <field name="vegetarian_portions"/>
+                                <field name="medical_portions"/>
+                                <field name="total_rations" class="oe_bold" style="font-size: 16px;"/>
+                            </group>
+                        </group>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Action: Meal Distributions -->
+        <record id="action_prison_meal_distribution" model="ir.actions.act_window">
+            <field name="name">Daily Meals &amp; Catering Distributions</field>
+            <field name="res_model">prison.meal.distribution</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <!-- Action: Meal Menus -->
+        <record id="action_prison_meal_menu" model="ir.actions.act_window">
+            <field name="name">Nutritional Menus &amp; Diets</field>
+            <field name="res_model">prison.meal.menu</field>
+            <field name="view_mode">list,form</field>
+        </record>
+    </data>
+</odoo>

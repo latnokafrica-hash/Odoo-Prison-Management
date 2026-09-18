@@ -1,0 +1,250 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* prison_management
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0+e\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-18 10:00+0000\n"
+"PO-Revision-Date: 2026-09-18 10:00+0000\n"
+"Last-Translator: Direction Nationale de l'Administration Pénitentiaire\n"
+"Language-Team: French (https://www.transifex.com/odoo/teams/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fr\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#. module: prison_management
+#: model:ir.module.module,shortdesc:prison_management.module_prison_management
+msgid "Prison Management Enterprise"
+msgstr "Gestion Pénitentiaire Entreprise"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_root
+msgid "Corrections ERP"
+msgstr "Administration Pénitentiaire"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_dashboard_root
+msgid "Operations Dashboard"
+msgstr "Tableau de Bord des Opérations"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_custody
+msgid "Inmates & Custody"
+msgstr "Détenus & Garde à Vue"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_inmate_records
+msgid "Inmate Master Records"
+msgstr "Registre Écrou & Dossiers Détenus"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_facilities_root
+msgid "Facilities & Cells"
+msgstr "Établissements & Cellules"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_facilities
+msgid "Correctional Facilities"
+msgstr "Centres Pénitentiaires"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_facility_blocks
+msgid "Cell Blocks & Wings"
+msgstr "Bâtiments & Quartiers de Détention"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_facility_cells
+msgid "Detention Cells & Rooms"
+msgstr "Cellules & Chambres de Détention"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_cell_maintenance
+msgid "Cell Hardware Maintenance"
+msgstr "Maintenance Technique des Cellules"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_judicial_root
+msgid "Court & Escort Fleet"
+msgstr "Tribunaux & Flotte d'Escorte"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_court_calendar
+msgid "Court Attendance Calendar"
+msgstr "Calendrier des Audiences Judiciaires"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_fleet_convoys
+msgid "Armed Court Convoys"
+msgstr "Convois d'Escorte Judiciaire Armée"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_fleet_vehicles
+msgid "Cellular Transport Fleet"
+msgstr "Flotte de Véhicules Cellulaires"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_catering_root
+msgid "Catering & Meals"
+msgstr "Restauration & Repas"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_meal_distributions
+msgid "Daily Meal Distributions"
+msgstr "Distributions Journalières des Repas"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_meal_menus
+msgid "Nutritional Menus & Diets"
+msgstr "Menus Nutritionnels & Régimes"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_visitation_root
+msgid "Visitors & Parloir"
+msgstr "Visiteurs & Parloirs"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_visit_sessions
+msgid "Parloir Visiting Sessions"
+msgstr "Séances de Parloir"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_visitors
+msgid "Visitor Registry & Vetting"
+msgstr "Registre des Visiteurs & Habilitations"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_legal
+msgid "Sentence & Legal"
+msgstr "Exécution des Peines & Affaires Juridiques"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_sentences
+msgid "Sentences & Remissions"
+msgstr "Peines & Réductions de Peine"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_rehab
+msgid "Rehabilitation & Rights"
+msgstr "Réinsertion & Droits Humains"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_programs
+msgid "Vocational & Work Schemes"
+msgstr "Ateliers & Formations Professionnelles"
+
+#. module: prison_management
+#: model:ir.ui.menu,name:prison_management.menu_prison_human_rights
+msgid "UN Mandela Rules Audits"
+msgstr "Audits Règles Nelson Mandela (ONU)"
+
+#. module: prison_management
+#: model:ir.model,name:prison_management.model_prison_facility
+msgid "Correctional Facility"
+msgstr "Centre Pénitentiaire"
+
+#. module: prison_management
+#: model:ir.model,name:prison_management.model_prison_facility_block
+msgid "Prison Cell Block & Wing"
+msgstr "Quartier de Détention & Bâtiment"
+
+#. module: prison_management
+#: model:ir.model,name:prison_management.model_prison_facility_cell
+msgid "Inmate Detention Cell / Room"
+msgstr "Cellule de Détention"
+
+#. module: prison_management
+#: model:ir.model,name:prison_management.model_prison_cell_maintenance
+msgid "Cell Maintenance & Security Hardware Work Order"
+msgstr "Ordre de Travail Maintenance Cellule"
+
+#. module: prison_management
+#: model:ir.model,name:prison_management.model_prison_meal_menu
+msgid "Inmate Nutritional Meal Menu & Recipe"
+msgstr "Menu Nutritionnel des Détenus"
+
+#. module: prison_management
+#: model:ir.model,name:prison_management.model_prison_meal_distribution
+msgid "Daily Meal Catering & Cell Block Distribution Log"
+msgstr "Journal de Distribution des Repas par Quartier"
+
+#. module: prison_management
+#: model:ir.model,name:prison_management.model_prison_visitor
+msgid "Inmate Visitor Profile & Security Vetting"
+msgstr "Profil du Visiteur & Contrôle de Sécurité"
+
+#. module: prison_management
+#: model:ir.model,name:prison_management.model_prison_visit_session
+msgid "Inmate Visitation Session & Parloir Booking"
+msgstr "Réservation Séance de Parloir"
+
+#. module: prison_management
+#: model:ir.model,name:prison_management.model_prison_fleet_vehicle
+msgid "Correctional Transport Fleet & Armored Prisoner Cellular Van"
+msgstr "Véhicule Cellulaire Blindé de Transport"
+
+#. module: prison_management
+#: model:ir.model,name:prison_management.model_prison_fleet_convoy
+msgid "Armed Judicial Court Convoy & Escort Transit Mission"
+msgstr "Convoi d'Escorte Judiciaire Armée"
+
+#. module: prison_management
+#: model:ir.model,name:prison_management.model_prison_court_hearing
+msgid "Court Attendance & Production Warrant Docket"
+msgstr "Extrait Judiciaire & Comparution au Tribunal"
+
+#. module: prison_management
+#: model:ir.model.fields,field_description:prison_management.field_prison_inmate__booking_number
+msgid "Booking / Inmate No."
+msgstr "Numéro d'Écrou"
+
+#. module: prison_management
+#: model:ir.model.fields,field_description:prison_management.field_prison_inmate__custody_status
+msgid "Custody Status"
+msgstr "Statut de Détention"
+
+#. module: prison_management
+#: model:ir.model.fields,field_description:prison_management.field_prison_facility_cell__capacity
+msgid "Bed Capacity"
+msgstr "Capacité en Lits"
+
+#. module: prison_management
+#: model:ir.model.fields,field_description:prison_management.field_prison_facility_cell__current_occupancy
+msgid "Occupants Count"
+msgstr "Nombre d'Occupants"
+
+#. module: prison_management
+#: model:ir.model.fields,field_description:prison_management.field_prison_meal_distribution__total_rations
+msgid "Total Rations Dispatched"
+msgstr "Total des Portions Servies"
+
+#. module: prison_management
+#: model:ir.model.fields,field_description:prison_management.field_prison_visitor__vetting_status
+msgid "Security Clearance Status"
+msgstr "Statut d'Habilitation Sécuritaire"
+
+#. module: prison_management
+#: model:ir.model.fields,field_description:prison_management.field_prison_fleet_convoy__status
+msgid "Convoy Status"
+msgstr "Statut du Convoi"
+
+#. module: prison_management
+#: code:addons/prison_management/models/prison_court.py:0
+#, python-format
+msgid "Inmate dispatched under armed escort to %s."
+msgstr "Détenu transféré sous escorte armée vers %s."
+
+#. module: prison_management
+#: code:addons/prison_management/models/prison_meal.py:0
+#, python-format
+msgid "Meals dispatched from central kitchen to %s. Total portions: %d."
+msgstr "Repas expédiés de la cuisine centrale vers %s. Portions totales : %d."
+
+#. module: prison_management
+#: code:addons/prison_management/models/prison_visitor.py:0
+#, python-format
+msgid "Visitor %s admitted through security check to booth %s."
+msgstr "Visiteur %s admis après contrôle de sécurité vers le parloir %s."

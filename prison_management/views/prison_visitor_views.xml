@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Visitor List View -->
+        <record id="view_prison_visitor_tree" model="ir.ui.view">
+            <field name="name">prison.visitor.list</field>
+            <field name="model">prison.visitor</field>
+            <field name="arch" type="xml">
+                <list string="Inmate Visitor Registry" decoration-danger="vetting_status == 'barred'" decoration-warning="vetting_status == 'pending_review'">
+                    <field name="name"/>
+                    <field name="national_id"/>
+                    <field name="relationship" widget="badge"/>
+                    <field name="phone"/>
+                    <field name="email"/>
+                    <field name="vetting_status" widget="badge"/>
+                    <field name="total_visits"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Visitor Form View -->
+        <record id="view_prison_visitor_form" model="ir.ui.view">
+            <field name="name">prison.visitor.form</field>
+            <field name="model">prison.visitor</field>
+            <field name="arch" type="xml">
+                <form string="Inmate Visitor Dossier">
+                    <header>
+                        <field name="vetting_status" widget="statusbar" statusbar_visible="pending_review,cleared,barred"/>
+                    </header>
+                    <sheet>
+                        <field name="photo" widget="image" class="oe_avatar"/>
+                        <div class="oe_title">
+                            <label for="name" string="Visitor Legal Name"/>
+                            <h1><field name="name" placeholder="Full Legal Name"/></h1>
+                            <h3><field name="national_id" placeholder="National ID / Passport No."/></h3>
+                        </div>
+                        <group>
+                            <group string="Identity &amp; Contact">
+                                <field name="relationship"/>
+                                <field name="phone"/>
+                                <field name="email"/>
+                                <field name="address"/>
+                            </group>
+                            <group string="Security Vetting">
+                                <field name="total_visits"/>
+                                <field name="barred_reason" invisible="vetting_status != 'barred'"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Visit History &amp; Parloir Records">
+                                <field name="visit_session_ids">
+                                    <list string="Visits">
+                                        <field name="name"/>
+                                        <field name="visit_date"/>
+                                        <field name="inmate_id"/>
+                                        <field name="visiting_booth"/>
+                                        <field name="status" widget="badge"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Visit Session List View -->
+        <record id="view_prison_visit_session_tree" model="ir.ui.view">
+            <field name="name">prison.visit.session.list</field>
+            <field name="model">prison.visit.session</field>
+            <field name="arch" type="xml">
+                <list string="Parloir Visitation Sessions" decoration-info="status == 'booked'" decoration-warning="status == 'in_progress'" decoration-success="status == 'completed'" decoration-danger="status in ['denied', 'terminated']">
+                    <field name="name"/>
+                    <field name="visit_date"/>
+                    <field name="scheduled_time"/>
+                    <field name="inmate_id"/>
+                    <field name="visitor_id"/>
+                    <field name="relationship" widget="badge"/>
+                    <field name="visiting_booth"/>
+                    <field name="booth_type" widget="badge"/>
+                    <field name="status" widget="badge"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Visit Session Form View -->
+        <record id="view_prison_visit_session_form" model="ir.ui.view">
+            <field name="name">prison.visit.session.form</field>
+            <field name="model">prison.visit.session</field>
+            <field name="arch" type="xml">
+                <form string="Parloir Visitation Session">
+                    <header>
+                        <button name="action_admit_visitor" string="Admit Through Security Check" type="object" class="btn-primary" invisible="status != 'booked'"/>
+                        <button name="action_start_session" string="Start Parloir Session" type="object" class="btn-secondary" invisible="status != 'admitted'"/>
+                        <button name="action_complete_session" string="Conclude Visit" type="object" class="btn-success" invisible="status != 'in_progress'"/>
+                        <button name="action_deny_entry" string="Deny Entry" type="object" class="btn-danger" invisible="status not in ['booked', 'admitted']"/>
+                        <field name="status" widget="statusbar" statusbar_visible="booked,admitted,in_progress,completed"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <span class="o_form_label">Visit Session</span>
+                            <h1><field name="name"/></h1>
+                        </div>
+                        <group>
+                            <group string="Parties Involved">
+                                <field name="inmate_id"/>
+                                <field name="facility_id"/>
+                                <field name="visitor_id"/>
+                                <field name="relationship"/>
+                            </group>
+                            <group string="Appointment Slot &amp; Booth">
+                                <field name="visit_date"/>
+                                <field name="scheduled_time"/>
+                                <field name="duration_minutes"/>
+                                <field name="visiting_booth"/>
+                                <field name="booth_type"/>
+                            </group>
+                        </group>
+
+                        <group string="Mandatory Security &amp; Contraband Screening Protocol">
+                            <group>
+                                <field name="chk_id_verified"/>
+                                <field name="chk_metal_detector_cleared"/>
+                            </group>
+                            <group>
+                                <field name="chk_canine_narcotics_cleared"/>
+                                <field name="chk_personal_items_vaulted"/>
+                                <field name="supervising_guard_id"/>
+                            </group>
+                        </group>
+
+                        <group string="Officer Incident Notes">
+                            <field name="incident_notes" placeholder="Log any behavioral infractions, contraband seizures, or unauthorized handoffs..."/>
+                        </group>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Actions -->
+        <record id="action_prison_visit_session" model="ir.actions.act_window">
+            <field name="name">Parloir Visitation Sessions</field>
+            <field name="res_model">prison.visit.session</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="action_prison_visitor" model="ir.actions.act_window">
+            <field name="name">Visitor Registry &amp; Vetting</field>
+            <field name="res_model">prison.visitor</field>
+            <field name="view_mode">list,form</field>
+        </record>
+    </data>
+</odoo>

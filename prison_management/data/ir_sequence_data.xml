@@ -36,5 +36,41 @@
             <field name="padding">5</field>
             <field name="company_id" eval="False"/>
         </record>
+
+        <!-- Sequence: Meal Distribution Manifest -->
+        <record id="seq_prison_meal_distribution" model="ir.sequence">
+            <field name="name">Prison Meal Distribution Manifest</field>
+            <field name="code">prison.meal.distribution</field>
+            <field name="prefix">MEAL/%(year)s/</field>
+            <field name="padding">5</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Sequence: Inmate Visit Session -->
+        <record id="seq_prison_visit_session" model="ir.sequence">
+            <field name="name">Inmate Visit Booking Reference</field>
+            <field name="code">prison.visit.session</field>
+            <field name="prefix">VIS/%(year)s/</field>
+            <field name="padding">5</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Sequence: Fleet Court Convoy Mission -->
+        <record id="seq_prison_fleet_convoy" model="ir.sequence">
+            <field name="name">Armed Court Convoy Mission</field>
+            <field name="code">prison.fleet.convoy</field>
+            <field name="prefix">CNV/%(year)s/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Sequence: Cell Maintenance Work Order -->
+        <record id="seq_prison_cell_maintenance" model="ir.sequence">
+            <field name="name">Cell Maintenance Work Order</field>
+            <field name="code">prison.cell.maintenance</field>
+            <field name="prefix">WO/%(year)s/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
     </data>
 </odoo>

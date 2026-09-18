@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Inmate, PrisonFacility, ViewMode, AppSection, TransferRecord } from './types';
+import { Inmate, PrisonFacility, ViewMode, AppSection, TransferRecord, Language, UserRole } from './types';
 import { INITIAL_INMATES, INITIAL_FACILITIES } from './data/initialData';
+import { USER_ROLES } from './data/rolesData';
 import { OdooNavbar } from './components/odoo/OdooNavbar';
 import { OdooSubNavbar } from './components/odoo/OdooSubNavbar';
 import { InmateListView } from './components/inmates/InmateListView';
@@ -14,6 +15,13 @@ import { DischargeExitHub } from './components/discharge/DischargeExitHub';
 import { MultiPrisonOverview } from './components/facilities/MultiPrisonOverview';
 import { HumanRightsHub } from './components/human_rights/HumanRightsHub';
 import { Odoo19BlueprintViewer } from './components/blueprint/Odoo19BlueprintViewer';
+import { PrisonDashboardHub } from './components/dashboard/PrisonDashboardHub';
+import { CourtCalendarHub } from './components/court/CourtCalendarHub';
+import { PrisonMealHub } from './components/meals/PrisonMealHub';
+import { PrisonVisitorHub } from './components/visitors/PrisonVisitorHub';
+import { PrisonRoomHub } from './components/rooms/PrisonRoomHub';
+import { PrisonFleetHub } from './components/fleet/PrisonFleetHub';
+import { AccessDeniedView } from './components/odoo/AccessDeniedView';
 import { NewAdmissionModal } from './components/modals/NewAdmissionModal';
 import { TransferModal } from './components/modals/TransferModal';
 import { EscapeRecaptureModal } from './components/modals/EscapeRecaptureModal';
@@ -23,9 +31,13 @@ export default function App() {
   const [inmates, setInmates] = useState<Inmate[]>(INITIAL_INMATES);
   const [facilities, setFacilities] = useState<PrisonFacility[]>(INITIAL_FACILITIES);
 
-  // Active module/app section
-  const [activeApp, setActiveApp] = useState<AppSection>('inmates');
+  // Active module/app section & language
+  const [activeApp, setActiveApp] = useState<AppSection>('dashboard');
+  const [language, setLanguage] = useState<Language>('fr'); // Default French localization
   const [selectedFacilityId, setSelectedFacilityId] = useState<string>('ALL');
+
+  // Mock User Role (Odoo 19 RBAC & Access Control simulation)
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>('superintendent');
 
   // Views & selection
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -222,6 +234,10 @@ export default function App() {
     setSelectedInmateId(null);
   };
 
+  // Role permissions computation
+  const roleProfile = USER_ROLES[currentUserRole] || USER_ROLES.superintendent;
+  const isSectionAllowed = roleProfile.allowedModules.includes(activeApp);
+
   return (
     <div className="min-h-screen bg-[#F0F2F5] text-slate-900 flex flex-col font-sans">
       {/* 1. Main Odoo 19 Navigation Header */}
@@ -238,6 +254,10 @@ export default function App() {
         onSelectFacility={setSelectedFacilityId}
         inmates={inmates}
         onOpenNewModal={() => setIsNewAdmissionOpen(true)}
+        language={language}
+        onToggleLanguage={setLanguage}
+        currentUserRole={currentUserRole}
+        onSelectRole={setCurrentUserRole}
       />
 
       {/* 2. Sub Navbar (Contextual Actions, Search & View Switcher) */}
@@ -252,11 +272,82 @@ export default function App() {
         onSelectFilter={setFilterSecurity}
         totalRecords={inmates.length}
         filteredCount={filteredInmates.length}
-        title="Prison Custody & Inmate ERP"
+        title={language === 'fr' ? 'Administration Pénitentiaire & Registre d\'Écrou' : 'Prison Custody & Inmate ERP'}
       />
 
       {/* 3. Main Dynamic Content Body */}
       <main className="flex-1 pb-10">
+        {/* Odoo 19 Access Control Check (RBAC: ir.rule & res.groups) */}
+        {!isSectionAllowed ? (
+          <AccessDeniedView
+            attemptedSection={activeApp}
+            currentRole={currentUserRole}
+            language={language}
+            onElevateRole={(newRole) => setCurrentUserRole(newRole)}
+            onReturnToDashboard={() => setActiveApp('dashboard')}
+          />
+        ) : (
+          <>
+            {/* APP SECTION: OPERATIONS DASHBOARD */}
+            {activeApp === 'dashboard' && (
+              <div className="max-w-7xl mx-auto px-4 py-6">
+                <PrisonDashboardHub
+                  inmates={inmates}
+                  facilities={facilities}
+                  language={language}
+                  onNavigate={(section) => setActiveApp(section)}
+                  currentUserRole={currentUserRole}
+                  onSelectRole={setCurrentUserRole}
+                />
+              </div>
+            )}
+
+        {/* APP SECTION: COURT CALENDAR & DOCKETS */}
+        {activeApp === 'court_calendar' && (
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <CourtCalendarHub
+              inmates={inmates}
+              language={language}
+            />
+          </div>
+        )}
+
+        {/* APP SECTION: PRISONERS LUNCH & MEALS MANAGEMENT */}
+        {activeApp === 'meals' && (
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <PrisonMealHub
+              language={language}
+            />
+          </div>
+        )}
+
+        {/* APP SECTION: INMATE VISITORS & PARLOIR MANAGEMENT */}
+        {activeApp === 'visitors' && (
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <PrisonVisitorHub
+              language={language}
+            />
+          </div>
+        )}
+
+        {/* APP SECTION: CELL & ROOM FACILITIES MANAGEMENT */}
+        {activeApp === 'rooms' && (
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <PrisonRoomHub
+              language={language}
+            />
+          </div>
+        )}
+
+        {/* APP SECTION: ARMED ESCORT FLEET BETWEEN COURTS */}
+        {activeApp === 'fleet' && (
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <PrisonFleetHub
+              language={language}
+            />
+          </div>
+        )}
+
         {/* APP SECTION: INMATES MASTER */}
         {activeApp === 'inmates' && (
           <div>
@@ -283,6 +374,7 @@ export default function App() {
                 onOpenTransferModal={inm => setTransferInmate(inm)}
                 onOpenEscapeModal={inm => setEscapeInmate(inm)}
                 onOpenDischargeModal={inm => setActiveApp('discharge')}
+                currentUserRole={currentUserRole}
               />
             )}
 
@@ -391,6 +483,8 @@ export default function App() {
         {/* APP SECTION: ODOO 19 CODE BLUEPRINTS & ARCHITECTURE */}
         {activeApp === 'odoo_code' && (
           <Odoo19BlueprintViewer />
+        )}
+          </>
         )}
       </main>
 

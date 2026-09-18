@@ -7,6 +7,13 @@
                   sequence="25"
                   web_icon="prison_management,static/description/icon.png"/>
 
+        <!-- Top Menu: Executive Dashboard -->
+        <menuitem id="menu_prison_dashboard_root"
+                  name="Operations Dashboard"
+                  parent="menu_prison_root"
+                  action="action_prison_management_dashboard"
+                  sequence="5"/>
+
         <!-- Top Menu: Inmates & Custody -->
         <menuitem id="menu_prison_custody"
                   name="Inmates &amp; Custody"
@@ -25,11 +32,101 @@
                   action="action_prison_transfer"
                   sequence="20"/>
 
-        <!-- Top Menu: Sentence Administration & Judicial -->
+        <!-- Top Menu: Facilities, Blocks & Rooms Management -->
+        <menuitem id="menu_prison_facilities_root"
+                  name="Facilities &amp; Cells"
+                  parent="menu_prison_root"
+                  sequence="15"/>
+
+        <menuitem id="menu_prison_facilities"
+                  name="Correctional Facilities"
+                  parent="menu_prison_facilities_root"
+                  action="action_prison_facility"
+                  sequence="10"/>
+
+        <menuitem id="menu_prison_facility_blocks"
+                  name="Cell Blocks &amp; Wings"
+                  parent="menu_prison_facilities_root"
+                  action="action_prison_facility_block"
+                  sequence="20"/>
+
+        <menuitem id="menu_prison_facility_cells"
+                  name="Detention Cells &amp; Rooms"
+                  parent="menu_prison_facilities_root"
+                  action="action_prison_facility_cell"
+                  sequence="30"/>
+
+        <menuitem id="menu_prison_cell_maintenance"
+                  name="Cell Hardware Maintenance"
+                  parent="menu_prison_facilities_root"
+                  action="action_prison_cell_maintenance"
+                  sequence="40"/>
+
+        <!-- Top Menu: Judicial Calendar, Escorts & Transport Fleet -->
+        <menuitem id="menu_prison_judicial_root"
+                  name="Court &amp; Escort Fleet"
+                  parent="menu_prison_root"
+                  sequence="20"/>
+
+        <menuitem id="menu_prison_court_calendar"
+                  name="Court Attendance Calendar"
+                  parent="menu_prison_judicial_root"
+                  action="action_prison_court_hearing"
+                  sequence="10"/>
+
+        <menuitem id="menu_prison_fleet_convoys"
+                  name="Armed Court Convoys"
+                  parent="menu_prison_judicial_root"
+                  action="action_prison_fleet_convoy"
+                  sequence="20"/>
+
+        <menuitem id="menu_prison_fleet_vehicles"
+                  name="Cellular Transport Fleet"
+                  parent="menu_prison_judicial_root"
+                  action="action_prison_fleet_vehicle"
+                  sequence="30"/>
+
+        <!-- Top Menu: Prisoners Lunch & Catering Management -->
+        <menuitem id="menu_prison_catering_root"
+                  name="Catering &amp; Meals"
+                  parent="menu_prison_root"
+                  sequence="25"/>
+
+        <menuitem id="menu_prison_meal_distributions"
+                  name="Daily Meal Distributions"
+                  parent="menu_prison_catering_root"
+                  action="action_prison_meal_distribution"
+                  sequence="10"/>
+
+        <menuitem id="menu_prison_meal_menus"
+                  name="Nutritional Menus &amp; Diets"
+                  parent="menu_prison_catering_root"
+                  action="action_prison_meal_menu"
+                  sequence="20"/>
+
+        <!-- Top Menu: Visitors & Parloir Management -->
+        <menuitem id="menu_prison_visitation_root"
+                  name="Visitors &amp; Parloir"
+                  parent="menu_prison_root"
+                  sequence="30"/>
+
+        <menuitem id="menu_prison_visit_sessions"
+                  name="Parloir Visiting Sessions"
+                  parent="menu_prison_visitation_root"
+                  action="action_prison_visit_session"
+                  sequence="10"/>
+
+        <menuitem id="menu_prison_visitors"
+                  name="Visitor Registry &amp; Vetting"
+                  parent="menu_prison_visitation_root"
+                  action="action_prison_visitor"
+                  sequence="20"/>
+
+        <!-- Top Menu: Sentence Administration -->
         <menuitem id="menu_prison_legal"
                   name="Sentence &amp; Legal"
                   parent="menu_prison_root"
-                  sequence="20"/>
+                  sequence="35"/>
 
         <menuitem id="menu_prison_sentences"
                   name="Sentences &amp; Remissions"
@@ -37,17 +134,11 @@
                   action="action_prison_sentence"
                   sequence="10"/>
 
-        <menuitem id="menu_prison_court_dockets"
-                  name="Court Attendance Dockets"
-                  parent="menu_prison_legal"
-                  action="action_prison_court_hearing"
-                  sequence="20"/>
-
         <!-- Top Menu: Rehabilitation & Human Rights -->
         <menuitem id="menu_prison_rehab"
                   name="Rehabilitation &amp; Rights"
                   parent="menu_prison_root"
-                  sequence="30"/>
+                  sequence="40"/>
 
         <menuitem id="menu_prison_programs"
                   name="Vocational &amp; Work Schemes"
@@ -60,17 +151,5 @@
                   parent="menu_prison_rehab"
                   action="action_prison_human_rights_audit"
                   sequence="20"/>
-
-        <!-- Top Menu: National Directorate Configuration -->
-        <menuitem id="menu_prison_directorate"
-                  name="National Directorate"
-                  parent="menu_prison_root"
-                  sequence="40"/>
-
-        <menuitem id="menu_prison_facilities"
-                  name="Correctional Facilities"
-                  parent="menu_prison_directorate"
-                  action="action_prison_facility"
-                  sequence="10"/>
     </data>
 </odoo>

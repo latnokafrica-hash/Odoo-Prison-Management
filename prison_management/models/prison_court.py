@@ -17,6 +17,12 @@ class PrisonCourtHearing(models.Model):
     judge_name = fields.Char(string='Presiding Magistrate / Judge')
     hearing_date = fields.Date(string='Hearing Date', required=True, default=fields.Date.context_today, tracking=True, index=True)
     hearing_time = fields.Char(string='Hearing Time', default='09:00 AM')
+    hearing_datetime_start = fields.Datetime(string='Court Calendar Start Time', default=fields.Datetime.now, required=True, tracking=True, index=True)
+    hearing_datetime_stop = fields.Datetime(string='Court Calendar End Time')
+    duration = fields.Float(string='Estimated Duration (Hours)', default=1.5)
+
+    # Convoy & Fleet Integration
+    convoy_id = fields.Many2one('prison.fleet.convoy', string='Assigned Fleet Convoy', tracking=True)
 
     hearing_type = fields.Selection([
         ('bail_hearing', 'Bail / Bond Application Review'),

@@ -3,9 +3,9 @@
 
 {
     'name': 'Prison Management Enterprise',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Human Resources/Corrections',
-    'summary': 'End-to-End Correctional Facilities, Inmate Lifecycle, Sentence Remission, and Judicial Escort ERP',
+    'summary': 'End-to-End Correctional Facilities, Multi-Prison Directory, Court Calendar, Meal Management, Fleet Convoy & Visitors ERP',
     'description': """
 Prison Management System for Odoo 19 Enterprise
 ================================================
@@ -14,44 +14,47 @@ system for correctional directorates, maximum/medium security penitentiaries, an
 
 Key Enterprise Capabilities:
 -----------------------------
-* **Multi-Prison Facility Directorate**:
-  - Live occupancy and overcrowding capacity tracking
-  - Multi-facility bed balance & transfer requisition workflows
+* **Multi-Prison Facility Directorate & Dashboard**:
+  - Live occupancy and overcrowding capacity tracking across national facilities
+  - High-performance operational KPI dashboard
   - Security categorization: CAT A, CAT B, CAT C, CAT D
 
+* **Cell & Room Facilities Management**:
+  - Wings, cell blocks, individual detention cells, and group dormitories
+  - Certified bed capacities, real-time occupancy counts, and fixture checklists
+  - Cell hardware maintenance work orders (locks, bars, plumbing, duress buttons)
+
+* **Court Attendance Calendar & Escort Convoy Fleet**:
+  - Dynamic Odoo 19 Calendar view for judicial hearings, plea mentions, and trial dockets
+  - Armored cellular prisoner transport fleet vehicles with ballistic protection ratings
+  - Armed judicial escort convoys with routing, manifest tracking, and radio telemetry
+
+* **Prisoners Lunch & Catering Management**:
+  - Nutritional menu planning with calorie counts and dietary classifications (Halal, Kosher, Diabetic, Vegetarian)
+  - Daily meal batch distribution to cell blocks with temperature verification and hygiene certification
+
+* **Inmate Visitors & Parloir Management**:
+  - Visitor registry with biometric photo, national ID, and background security vetting
+  - Parloir visiting session bookings with 4-step security screening (metal detector, K9, contraband search)
+
 * **Inmate Admissions & Movements**:
-  - Intake booking with biometric record links, biometric 10-prints, iris scans
+  - Intake booking with biometric records, 10-prints, iris scans
   - Sealed property vault tracking with tamper-proof bag seals
   - Inter-prison armed convoy transfer requests with dispatch/arrival protocols
-  - Bail surrender and re-admission handling
-  - Red alert escape incident broadcasting and recapture processing with statutory penalty
+  - Red alert escape incident broadcasting and recapture processing
 
 * **Sentence Administration & Remission Engine**:
   - Automatic computation of statutory 1/3 remission under the Prisons Act
   - Aggregation of consecutive vs. concurrent sentences
   - Computation of Earliest Date of Release (EDR), Latest Date of Release (LDR), and Parole Eligibility Dates (PED)
-  - Disciplinary tribunal forfeiture of remission days ledger
-  - UN Nelson Mandela Rules (Standard Minimum Rules) and human rights compliance tracking (solitary confinement 15-day strict ceiling, outdoor exercise)
-
-* **Rehabilitation, Classification & Gratuity Schemes**:
-  - 4-Stage progressive classification system (Induction, Standard, Advanced, Pre-Release Trust)
-  - Vocational training and industrial workshop enrollment (Joinery, Garments, Masonry, IT)
-  - Inmate labor gratuity ledger with daily earnings accrual, commissary debits, and exit disbursement
-
-* **Court Attendance & Production Warrants**:
-  - Judicial hearing docket calendars
-  - Virtual video link vs. armed convoy vehicle escort dispatch
-  - Workflow stage tracking from committal to judgment and sentencing
+  - UN Nelson Mandela Rules compliance tracking (solitary confinement 15-day strict ceiling)
 
 * **Discharge & Exit Management**:
   - Mandatory 7-point biometric, warrant, and property clearance checklist
   - Official Prisons Act Gate Pass and Release Certificate generation with unique barcodes
 
-Odoo 19 Enterprise Architecture:
----------------------------------
-* Compatible with Odoo 19 web views, native chatter (`<chatter/>`), OWL frontend widgets
-* Multi-company / multi-facility record security rules
-* Fully defined access control lists (`ir.model.access.csv`)
+* **Internationalization (i18n)**:
+  - Full French translation (fr.po) for all models, views, wizards, and menus.
     """,
     'author': 'National Directorate of Correctional Services / Odoo Community',
     'website': 'https://www.odoo.com/app/corrections',
@@ -74,10 +77,16 @@ Odoo 19 Enterprise Architecture:
         'data/mail_template_data.xml',
 
         # Views
+        'views/prison_dashboard_views.xml',
         'views/prison_facility_views.xml',
+        'views/prison_cell_views.xml',
         'views/prison_inmate_views.xml',
         'views/prison_sentence_views.xml',
         'views/prison_court_views.xml',
+        'views/prison_court_calendar_views.xml',
+        'views/prison_fleet_views.xml',
+        'views/prison_meal_views.xml',
+        'views/prison_visitor_views.xml',
         'views/prison_transfer_views.xml',
         'views/prison_rehabilitation_views.xml',
         'views/prison_human_rights_views.xml',

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Inmate, PrisonFacility, SentenceRecord, RemissionLog, GratuityTransaction } from '../../types';
+import { Inmate, PrisonFacility, SentenceRecord, RemissionLog, GratuityTransaction, UserRole } from '../../types';
+import { USER_ROLES } from '../../data/rolesData';
 import { 
   ArrowLeft, 
   Building2, 
@@ -22,10 +23,10 @@ import {
   Lock, 
   ShieldCheck, 
   UserCheck, 
-  HeartHandshake,
-  LogOut,
-  Car,
-  AlertCircle
+  HeartHandshake, 
+  LogOut, 
+  Car, 
+  AlertCircle 
 } from 'lucide-react';
 
 interface InmateFormViewProps {
@@ -36,6 +37,7 @@ interface InmateFormViewProps {
   onOpenTransferModal: (inmate: Inmate) => void;
   onOpenEscapeModal: (inmate: Inmate) => void;
   onOpenDischargeModal: (inmate: Inmate) => void;
+  currentUserRole?: UserRole;
 }
 
 export const InmateFormView: React.FC<InmateFormViewProps> = ({
@@ -45,11 +47,17 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
   onUpdateInmate,
   onOpenTransferModal,
   onOpenEscapeModal,
-  onOpenDischargeModal
+  onOpenDischargeModal,
+  currentUserRole = 'superintendent'
 }) => {
   const [activeTab, setActiveTab] = useState<'intake' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights'>('sentence');
   const [newChatterNote, setNewChatterNote] = useState('');
   const [chatterType, setChatterType] = useState<'log_note' | 'activity'>('log_note');
+
+  // Role permissions
+  const roleProfile = USER_ROLES[currentUserRole] || USER_ROLES.superintendent;
+  const canRecalculateRemission = roleProfile.canRecalculateRemission;
+  const canExecuteDischarge = roleProfile.canExecuteDischarge;
 
   // Remission deduction quick-action state
   const [showRemissionModal, setShowRemissionModal] = useState(false);
@@ -240,13 +248,25 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
               <span>Transfer Facility</span>
             </button>
 
-            <button
-              onClick={() => setShowRemissionModal(true)}
-              className="px-2.5 py-1 text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded shadow-2xs transition-colors flex items-center gap-1"
-            >
-              <Scale className="w-3.5 h-3.5 text-purple-600" />
-              <span>Adjust Remission</span>
-            </button>
+            {/* Sentence Remission: Restricted to Records Clerk & Superintendent */}
+            {canRecalculateRemission ? (
+              <button
+                onClick={() => setShowRemissionModal(true)}
+                className="px-2.5 py-1 text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded shadow-2xs transition-colors flex items-center gap-1"
+              >
+                <Scale className="w-3.5 h-3.5 text-purple-600" />
+                <span>Adjust Remission</span>
+              </button>
+            ) : (
+              <button
+                disabled
+                className="px-2.5 py-1 text-xs font-medium bg-slate-100 text-slate-400 border border-slate-200 rounded cursor-not-allowed flex items-center gap-1"
+                title="Sentence remission adjustment is restricted to Records Clerk & Superintendent (group_prison_records)"
+              >
+                <Lock className="w-3 h-3 text-slate-400" />
+                <span className="line-through">Adjust Remission</span>
+              </button>
+            )}
 
             <button
               onClick={() => setShowWageModal(true)}
@@ -274,13 +294,25 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
               </button>
             )}
 
-            <button
-              onClick={() => onOpenDischargeModal(inmate)}
-              className="px-2.5 py-1 text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded shadow-2xs transition-colors flex items-center gap-1"
-            >
-              <LogOut className="w-3.5 h-3.5 text-slate-600" />
-              <span>Discharge & Exit</span>
-            </button>
+            {/* Discharge & Exit: Strictly restricted to Superintendent */}
+            {canExecuteDischarge ? (
+              <button
+                onClick={() => onOpenDischargeModal(inmate)}
+                className="px-2.5 py-1 text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded shadow-2xs transition-colors flex items-center gap-1"
+              >
+                <LogOut className="w-3.5 h-3.5 text-slate-600" />
+                <span>Discharge & Exit</span>
+              </button>
+            ) : (
+              <button
+                disabled
+                className="px-2.5 py-1 text-xs font-medium bg-slate-100 text-slate-400 border border-slate-200 rounded cursor-not-allowed flex items-center gap-1"
+                title="Inmate discharge clearance is strictly restricted to Superintendent (group_prison_superintendent)"
+              >
+                <Lock className="w-3 h-3 text-slate-400" />
+                <span className="line-through">Discharge & Exit</span>
+              </button>
+            )}
           </div>
 
           {/* Odoo Status Chevron Pipeline */}

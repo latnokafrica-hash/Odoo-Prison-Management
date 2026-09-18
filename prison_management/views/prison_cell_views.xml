@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Facility Block List View -->
+        <record id="view_prison_facility_block_tree" model="ir.ui.view">
+            <field name="name">prison.facility.block.list</field>
+            <field name="model">prison.facility.block</field>
+            <field name="arch" type="xml">
+                <list string="Cell Blocks &amp; Wings">
+                    <field name="code"/>
+                    <field name="name"/>
+                    <field name="facility_id"/>
+                    <field name="block_type" widget="badge"/>
+                    <field name="floor_level"/>
+                    <field name="total_cells"/>
+                    <field name="capacity"/>
+                    <field name="current_occupancy"/>
+                    <field name="occupancy_rate" widget="progressbar"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Facility Block Form View -->
+        <record id="view_prison_facility_block_form" model="ir.ui.view">
+            <field name="name">prison.facility.block.form</field>
+            <field name="model">prison.facility.block</field>
+            <field name="arch" type="xml">
+                <form string="Cell Block &amp; Wing">
+                    <sheet>
+                        <div class="oe_title">
+                            <label for="name" string="Block / Wing Name"/>
+                            <h1><field name="name" placeholder="e.g. Block C - High Security Wing"/></h1>
+                            <h3><field name="code" placeholder="e.g. BLK-C-HS"/></h3>
+                        </div>
+                        <group>
+                            <group string="Facility &amp; Classification">
+                                <field name="facility_id"/>
+                                <field name="block_type"/>
+                                <field name="supervisor_id"/>
+                                <field name="floor_level"/>
+                            </group>
+                            <group string="Capacity Metrics">
+                                <field name="total_cells"/>
+                                <field name="capacity"/>
+                                <field name="current_occupancy"/>
+                                <field name="occupancy_rate" widget="progressbar"/>
+                            </group>
+                        </group>
+
+                        <notebook>
+                            <page string="Cells in this Block">
+                                <field name="cell_ids">
+                                    <list string="Cells" decoration-danger="is_full" decoration-warning="current_occupancy &gt; 0">
+                                        <field name="name"/>
+                                        <field name="cell_type"/>
+                                        <field name="security_level"/>
+                                        <field name="capacity"/>
+                                        <field name="current_occupancy"/>
+                                        <field name="available_beds"/>
+                                        <field name="condition_status" widget="badge"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Facility Cell List View -->
+        <record id="view_prison_facility_cell_tree" model="ir.ui.view">
+            <field name="name">prison.facility.cell.list</field>
+            <field name="model">prison.facility.cell</field>
+            <field name="arch" type="xml">
+                <list string="Detention Cells &amp; Rooms" decoration-danger="is_full" decoration-warning="condition_status != 'operational'">
+                    <field name="name"/>
+                    <field name="facility_id"/>
+                    <field name="block_id"/>
+                    <field name="cell_type" widget="badge"/>
+                    <field name="security_level" widget="badge"/>
+                    <field name="capacity"/>
+                    <field name="current_occupancy"/>
+                    <field name="available_beds"/>
+                    <field name="condition_status" widget="badge"/>
+                    <field name="last_shakedown_date"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Facility Cell Form View -->
+        <record id="view_prison_facility_cell_form" model="ir.ui.view">
+            <field name="name">prison.facility.cell.form</field>
+            <field name="model">prison.facility.cell</field>
+            <field name="arch" type="xml">
+                <form string="Detention Cell Dossier">
+                    <header>
+                        <field name="condition_status" widget="statusbar" statusbar_visible="operational,minor_repair,condemned"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <label for="name" string="Cell Number"/>
+                            <h1><field name="name" placeholder="e.g. C-104"/></h1>
+                        </div>
+                        <group>
+                            <group string="Location &amp; Security">
+                                <field name="block_id"/>
+                                <field name="facility_id"/>
+                                <field name="cell_type"/>
+                                <field name="security_level"/>
+                            </group>
+                            <group string="Bed Capacity &amp; Occupancy">
+                                <field name="capacity"/>
+                                <field name="current_occupancy"/>
+                                <field name="available_beds"/>
+                                <field name="is_full" invisible="1"/>
+                            </group>
+                        </group>
+
+                        <group string="Fixtures &amp; Nelson Mandela Minimum Standards">
+                            <group>
+                                <field name="has_bunk_beds"/>
+                                <field name="has_sanitary_toilet"/>
+                                <field name="has_running_water"/>
+                            </group>
+                            <group>
+                                <field name="has_natural_window"/>
+                                <field name="has_emergency_duress_call"/>
+                                <field name="has_cctv_monitoring"/>
+                            </group>
+                        </group>
+
+                        <notebook>
+                            <page string="Current Inmates Occupying Cell">
+                                <field name="inmate_ids">
+                                    <list string="Occupants">
+                                        <field name="booking_number"/>
+                                        <field name="name"/>
+                                        <field name="security_category"/>
+                                        <field name="progressive_stage"/>
+                                        <field name="custody_status"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Maintenance Work Orders">
+                                <field name="maintenance_ids">
+                                    <list string="Repairs" editable="bottom">
+                                        <field name="name"/>
+                                        <field name="maintenance_type"/>
+                                        <field name="priority" widget="badge"/>
+                                        <field name="request_date"/>
+                                        <field name="status" widget="badge"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Security Shakedown History">
+                                <group>
+                                    <field name="last_shakedown_date"/>
+                                    <field name="last_inspected_by"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Cell Maintenance List View -->
+        <record id="view_prison_cell_maintenance_tree" model="ir.ui.view">
+            <field name="name">prison.cell.maintenance.list</field>
+            <field name="model">prison.cell.maintenance</field>
+            <field name="arch" type="xml">
+                <list string="Cell Hardware Maintenance Work Orders" decoration-danger="priority == 'urgent'" decoration-info="status == 'draft'" decoration-success="status == 'completed'">
+                    <field name="name"/>
+                    <field name="facility_id"/>
+                    <field name="cell_id"/>
+                    <field name="maintenance_type"/>
+                    <field name="priority" widget="badge"/>
+                    <field name="request_date"/>
+                    <field name="status" widget="badge"/>
+                    <field name="completion_date"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Cell Maintenance Form View -->
+        <record id="view_prison_cell_maintenance_form" model="ir.ui.view">
+            <field name="name">prison.cell.maintenance.form</field>
+            <field name="model">prison.cell.maintenance</field>
+            <field name="arch" type="xml">
+                <form string="Cell Maintenance Work Order">
+                    <header>
+                        <button name="action_start_repair" string="Dispatch Technicians" type="object" class="btn-primary" invisible="status != 'draft'"/>
+                        <button name="action_complete_repair" string="Complete &amp; Certify Lock / Fixture" type="object" class="btn-success" invisible="status != 'in_progress'"/>
+                        <field name="status" widget="statusbar" statusbar_visible="draft,in_progress,completed"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <span class="o_form_label">Work Order</span>
+                            <h1><field name="name"/></h1>
+                        </div>
+                        <group>
+                            <group string="Location &amp; Issue">
+                                <field name="cell_id"/>
+                                <field name="facility_id"/>
+                                <field name="maintenance_type"/>
+                                <field name="priority"/>
+                            </group>
+                            <group string="Logistics">
+                                <field name="reported_by"/>
+                                <field name="request_date"/>
+                                <field name="completion_date"/>
+                            </group>
+                        </group>
+                        <group string="Technician Findings &amp; Replacement Hardware">
+                            <field name="technician_notes" placeholder="Enter hardware parts replaced, lock serial numbers, torque checks..."/>
+                        </group>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Actions -->
+        <record id="action_prison_facility_cell" model="ir.actions.act_window">
+            <field name="name">Detention Cells &amp; Rooms</field>
+            <field name="res_model">prison.facility.cell</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="action_prison_facility_block" model="ir.actions.act_window">
+            <field name="name">Cell Blocks &amp; Wings</field>
+            <field name="res_model">prison.facility.block</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="action_prison_cell_maintenance" model="ir.actions.act_window">
+            <field name="name">Cell Maintenance Work Orders</field>
+            <field name="res_model">prison.cell.maintenance</field>
+            <field name="view_mode">list,form</field>
+        </record>
+    </data>
+</odoo>

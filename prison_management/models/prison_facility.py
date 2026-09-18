@@ -39,8 +39,10 @@ class PrisonFacility(models.Model):
     occupancy_rate = fields.Float(string='Occupancy Rate (%)', compute='_compute_occupancy', store=True)
     is_overcrowded = fields.Boolean(string='Overcrowding Alert', compute='_compute_occupancy', store=True)
 
-    # Inmate Relations
+    # Inmate & Facilities Relations
     inmate_ids = fields.One2many('prison.inmate', 'facility_id', string='Inmate Population')
+    block_ids = fields.One2many('prison.facility.block', 'facility_id', string='Cell Blocks & Wings')
+    fleet_vehicle_ids = fields.One2many('prison.fleet.vehicle', 'facility_id', string='Assigned Fleet Vehicles')
     transfer_in_ids = fields.One2many('prison.transfer', 'to_facility_id', string='Incoming Transfers')
     transfer_out_ids = fields.One2many('prison.transfer', 'from_facility_id', string='Outgoing Transfers')
 

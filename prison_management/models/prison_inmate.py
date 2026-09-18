@@ -30,7 +30,9 @@ class PrisonInmate(models.Model):
 
     # Location & Facility
     facility_id = fields.Many2one('prison.facility', string='Assigned Facility', required=True, tracking=True, index=True)
+    cell_id = fields.Many2one('prison.facility.cell', string='Assigned Cell / Room', tracking=True)
     cell_location = fields.Char(string='Cell / Block Location', tracking=True, placeholder='e.g. Block B, Cell 04')
+    visit_session_ids = fields.One2many('prison.visit.session', 'inmate_id', string='Visitation Sessions')
 
     # Custody Workflow Status
     custody_status = fields.Selection([

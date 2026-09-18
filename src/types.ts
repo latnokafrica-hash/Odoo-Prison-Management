@@ -22,13 +22,45 @@ export type ProgressiveStage =
 
 export type ViewMode = 'list' | 'kanban' | 'form';
 
+export type Language = 'en' | 'fr';
+
+export type UserRole = 'superintendent' | 'guard' | 'medical_officer' | 'records_clerk';
+
+export interface UserRoleProfile {
+  id: UserRole;
+  name: string;
+  nameFr: string;
+  title: string;
+  titleFr: string;
+  avatarText: string;
+  avatarColor: string;
+  badgeBg: string;
+  badgeBorder: string;
+  odooGroup: string;
+  odooGroupXmlId: string;
+  description: string;
+  descriptionFr: string;
+  allowedModules: AppSection[];
+  sensitiveRestrictedModules: AppSection[];
+  canExecuteDischarge: boolean;
+  canRecalculateRemission: boolean;
+  canCreateAdmission: boolean;
+  canAuthorizeSolitary: boolean;
+}
+
 export type AppSection = 
+  | 'dashboard'
   | 'inmates'
   | 'facilities'
+  | 'rooms'
+  | 'court_calendar'
+  | 'court'
+  | 'fleet'
+  | 'meals'
+  | 'visitors'
   | 'admissions'
   | 'sentence'
   | 'rehabilitation'
-  | 'court'
   | 'discharge'
   | 'human_rights'
   | 'odoo_code';
@@ -297,3 +329,153 @@ export interface Inmate {
     type: 'log_note' | 'activity' | 'system';
   }[];
 }
+
+// Meal & Nutrition Interfaces
+export interface MealMenu {
+  id: string;
+  code: string;
+  name: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'special_ration';
+  dietCategory: 'standard' | 'halal' | 'kosher' | 'diabetic' | 'vegetarian' | 'renal_low_sodium';
+  caloriesKcal: number;
+  proteinGrams: number;
+  allergens: string;
+  certifiedByNutritionist: boolean;
+  description: string;
+}
+
+export interface MealDistribution {
+  id: string;
+  manifestNumber: string;
+  facilityId: string;
+  facilityName: string;
+  blockName: string;
+  distributionDate: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'special_ration';
+  menuName: string;
+  standardPortions: number;
+  halalPortions: number;
+  diabeticPortions: number;
+  vegetarianPortions: number;
+  totalRations: number;
+  foodTempCelsius: number;
+  hygieneCertified: boolean;
+  officerSignoff: string;
+  status: 'prep' | 'dispatched' | 'served';
+}
+
+// Visitor & Parloir Interfaces
+export interface VisitorRecord {
+  id: string;
+  name: string;
+  nationalId: string;
+  relationship: 'spouse' | 'parent' | 'child' | 'sibling' | 'legal_counsel' | 'religious_clergy' | 'friend';
+  phone: string;
+  photoUrl?: string;
+  vettingStatus: 'cleared' | 'pending_review' | 'barred' | 'suspended';
+  totalVisits: number;
+  barredReason?: string;
+}
+
+export interface VisitSession {
+  id: string;
+  bookingRef: string;
+  inmateId: string;
+  inmateName: string;
+  visitorId: string;
+  visitorName: string;
+  relationship: string;
+  facilityName: string;
+  visitDate: string;
+  scheduledTime: string;
+  visitingBooth: string;
+  boothType: 'glass_partition' | 'open_table' | 'legal_conference';
+  chkIdVerified: boolean;
+  chkMetalDetectorCleared: boolean;
+  chkCanineNarcoticsCleared: boolean;
+  chkPersonalItemsVaulted: boolean;
+  supervisingGuard: string;
+  status: 'booked' | 'admitted' | 'in_progress' | 'completed' | 'denied';
+  notes?: string;
+}
+
+// Cell Facilities & Rooms Interfaces
+export interface CellBlock {
+  id: string;
+  code: string;
+  name: string;
+  facilityId: string;
+  facilityName: string;
+  blockType: 'general_population' | 'high_security' | 'remand_wing' | 'hospital_wing' | 'juvenile_wing';
+  supervisor: string;
+  totalCells: number;
+  capacity: number;
+  currentOccupancy: number;
+  occupancyRate: number;
+}
+
+export interface CellRoom {
+  id: string;
+  name: string;
+  blockId: string;
+  blockName: string;
+  facilityId: string;
+  facilityName: string;
+  cellType: 'single_cell' | 'double_cell' | 'dormitory' | 'medical_cell';
+  securityLevel: SecurityCategory;
+  capacity: number;
+  currentOccupancy: number;
+  conditionStatus: 'operational' | 'minor_repair' | 'condemned' | 'quarantine';
+  hasBunkBeds: boolean;
+  hasSanitaryToilet: boolean;
+  hasRunningWater: boolean;
+  hasNaturalWindow: boolean;
+  hasCCTV: boolean;
+  lastShakedownDate: string;
+  inmateNames: string[];
+}
+
+export interface CellMaintenance {
+  id: string;
+  orderRef: string;
+  cellName: string;
+  facilityName: string;
+  requestDate: string;
+  maintenanceType: 'lock_mechanism' | 'sanitary_plumbing' | 'lighting_electrical' | 'bars_grille' | 'ventilation';
+  priority: 'low' | 'medium' | 'urgent';
+  reportedBy: string;
+  status: 'draft' | 'in_progress' | 'completed';
+  notes: string;
+}
+
+// Fleet & Court Escort Interfaces
+export interface FleetVehicle {
+  id: string;
+  callSign: string;
+  facilityName: string;
+  model: string;
+  vehicleType: 'armored_cellular_van' | 'convoy_chase_car' | 'bus_mass_transit';
+  armorLevel: 'level_b6' | 'level_b4' | 'standard_caged';
+  cellularCagesCapacity: number;
+  armedGuardCapacity: number;
+  gpsTrackerId: string;
+  fuelLevel: number;
+  status: 'ready' | 'in_convoy' | 'maintenance';
+}
+
+export interface FleetConvoy {
+  id: string;
+  missionCode: string;
+  facilityName: string;
+  destinationCourt: string;
+  departureTime: string;
+  escortCommander: string;
+  armedOfficersCount: number;
+  inmateCount: number;
+  vehiclesAssigned: string[];
+  inmateNames: string[];
+  securityRating: 'CAT_A_HIGH_THREAT' | 'STANDARD_SECURE' | 'MINIMUM_ESCORT';
+  status: 'planned' | 'staging' | 'en_route_court' | 'at_court' | 'en_route_prison' | 'completed';
+  radioLog: string;
+}
+

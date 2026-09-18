@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Fleet Vehicle List View -->
+        <record id="view_prison_fleet_vehicle_tree" model="ir.ui.view">
+            <field name="name">prison.fleet.vehicle.list</field>
+            <field name="model">prison.fleet.vehicle</field>
+            <field name="arch" type="xml">
+                <list string="Prison Transport Fleet" decoration-info="operational_status == 'ready'" decoration-warning="operational_status == 'in_convoy'" decoration-danger="operational_status == 'maintenance'">
+                    <field name="name"/>
+                    <field name="facility_id"/>
+                    <field name="vehicle_type" widget="badge"/>
+                    <field name="armor_security_level" widget="badge"/>
+                    <field name="cellular_cages_capacity"/>
+                    <field name="armed_guard_capacity"/>
+                    <field name="gps_tracker_id"/>
+                    <field name="fuel_level_percentage" widget="progressbar"/>
+                    <field name="operational_status" widget="badge"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Fleet Vehicle Form View -->
+        <record id="view_prison_fleet_vehicle_form" model="ir.ui.view">
+            <field name="name">prison.fleet.vehicle.form</field>
+            <field name="model">prison.fleet.vehicle</field>
+            <field name="arch" type="xml">
+                <form string="Prison Transport Vehicle">
+                    <header>
+                        <field name="operational_status" widget="statusbar" statusbar_visible="ready,in_convoy,maintenance"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <label for="name" string="Plate Number / Tactical Call Sign"/>
+                            <h1><field name="name" placeholder="e.g. VAN-ESCORT-04"/></h1>
+                            <h3><field name="model_name"/></h3>
+                        </div>
+                        <group>
+                            <group string="Specifications &amp; Armor">
+                                <field name="facility_id"/>
+                                <field name="vehicle_type"/>
+                                <field name="armor_security_level"/>
+                                <field name="chassis_number"/>
+                            </group>
+                            <group string="Capacities &amp; Telemetry">
+                                <field name="cellular_cages_capacity"/>
+                                <field name="armed_guard_capacity"/>
+                                <field name="gps_tracker_id"/>
+                                <field name="fuel_level_percentage" widget="progressbar"/>
+                                <field name="odometer_km"/>
+                            </group>
+                        </group>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Fleet Convoy List View -->
+        <record id="view_prison_fleet_convoy_tree" model="ir.ui.view">
+            <field name="name">prison.fleet.convoy.list</field>
+            <field name="model">prison.fleet.convoy</field>
+            <field name="arch" type="xml">
+                <list string="Armed Court Convoys &amp; Escorts" decoration-info="status == 'planned'" decoration-warning="status in ['staging', 'en_route_court', 'en_route_prison']" decoration-success="status == 'completed'" decoration-danger="status == 'emergency_alert'">
+                    <field name="name"/>
+                    <field name="departure_datetime"/>
+                    <field name="facility_id"/>
+                    <field name="destination_court_name"/>
+                    <field name="convoy_security_rating" widget="badge"/>
+                    <field name="escort_commander_name"/>
+                    <field name="armed_officers_count"/>
+                    <field name="inmate_count"/>
+                    <field name="status" widget="badge"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Fleet Convoy Form View -->
+        <record id="view_prison_fleet_convoy_form" model="ir.ui.view">
+            <field name="name">prison.fleet.convoy.form</field>
+            <field name="model">prison.fleet.convoy</field>
+            <field name="arch" type="xml">
+                <form string="Armed Court Convoy Mission">
+                    <header>
+                        <button name="action_stage_convoy" string="Stage Convoy &amp; Board Inmates" type="object" class="btn-primary" invisible="status != 'planned'"/>
+                        <button name="action_dispatch_en_route" string="Dispatch Convoy (Depart Gate)" type="object" class="btn-warning" invisible="status != 'staging'"/>
+                        <button name="action_arrive_court" string="Confirm Arrival at Court" type="object" class="btn-success" invisible="status != 'en_route_court'"/>
+                        <button name="action_return_en_route" string="Depart Court (Return Leg)" type="object" class="btn-secondary" invisible="status != 'at_court'"/>
+                        <button name="action_complete_mission" string="Conclude Mission at Base" type="object" class="btn-success" invisible="status != 'en_route_prison'"/>
+                        <field name="status" widget="statusbar" statusbar_visible="planned,staging,en_route_court,at_court,completed"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <span class="o_form_label">Convoy Manifest Code</span>
+                            <h1><field name="name"/></h1>
+                        </div>
+                        <group>
+                            <group string="Routing &amp; Schedule">
+                                <field name="facility_id"/>
+                                <field name="destination_court_name"/>
+                                <field name="departure_datetime"/>
+                                <field name="estimated_arrival_datetime"/>
+                                <field name="actual_arrival_datetime"/>
+                                <field name="return_base_datetime"/>
+                            </group>
+                            <group string="Security Command &amp; Squad">
+                                <field name="convoy_security_rating"/>
+                                <field name="escort_commander_name"/>
+                                <field name="armed_officers_count"/>
+                                <field name="inmate_count"/>
+                            </group>
+                        </group>
+
+                        <notebook>
+                            <page string="Inmates Transport Manifest">
+                                <field name="inmate_ids">
+                                    <list string="Inmates" decoration-danger="security_category == 'CAT_A'">
+                                        <field name="booking_number"/>
+                                        <field name="name"/>
+                                        <field name="security_category" widget="badge"/>
+                                        <field name="custody_status" widget="badge"/>
+                                        <field name="cell_location"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Assigned Convoy Vehicles">
+                                <field name="vehicle_ids">
+                                    <list string="Vehicles">
+                                        <field name="name"/>
+                                        <field name="vehicle_type"/>
+                                        <field name="armor_security_level"/>
+                                        <field name="cellular_cages_capacity"/>
+                                        <field name="operational_status" widget="badge"/>
+                                    </list>
+                                </field>
+                            </page>
+                            <page string="Radio Communications Log">
+                                <field name="radio_comm_log" placeholder="Log checkpoint waypoints, bridge crossings, ETA updates, radio signal checks..."/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Actions -->
+        <record id="action_prison_fleet_convoy" model="ir.actions.act_window">
+            <field name="name">Court Transport Convoys &amp; Escorts</field>
+            <field name="res_model">prison.fleet.convoy</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <record id="action_prison_fleet_vehicle" model="ir.actions.act_window">
+            <field name="name">Cellular Transport Fleet</field>
+            <field name="res_model">prison.fleet.vehicle</field>
+            <field name="view_mode">list,form</field>
+        </record>
+    </data>
+</odoo>
