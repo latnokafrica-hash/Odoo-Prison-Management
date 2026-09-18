@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Transfer List View -->
+        <record id="view_prison_transfer_tree" model="ir.ui.view">
+            <field name="name">prison.transfer.list</field>
+            <field name="model">prison.transfer</field>
+            <field name="arch" type="xml">
+                <list string="Inter-Prison Transfers &amp; Convoys" decoration-warning="status == 'in_transit'" decoration-success="status == 'completed'">
+                    <field name="name"/>
+                    <field name="inmate_id"/>
+                    <field name="from_facility_id"/>
+                    <field name="to_facility_id"/>
+                    <field name="requisition_date"/>
+                    <field name="transfer_reason"/>
+                    <field name="escort_level"/>
+                    <field name="transit_vehicle_number"/>
+                    <field name="status" widget="badge"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Transfer Form View -->
+        <record id="view_prison_transfer_form" model="ir.ui.view">
+            <field name="name">prison.transfer.form</field>
+            <field name="model">prison.transfer</field>
+            <field name="arch" type="xml">
+                <form string="Inter-Prison Transfer Requisition">
+                    <header>
+                        <button name="action_authorize" string="Authorize Convoy" type="object" class="btn-primary" invisible="status != 'pending_approval'"/>
+                        <button name="action_dispatch" string="Dispatch Convoy" type="object" class="btn-warning" invisible="status != 'authorized'"/>
+                        <button name="action_confirm_arrival" string="Confirm Gate Handover" type="object" class="btn-success" invisible="status != 'in_transit'"/>
+                        <field name="status" widget="statusbar" statusbar_visible="pending_approval,authorized,in_transit,completed"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <span class="o_form_label">Transfer Requisition</span>
+                            <h1><field name="name"/></h1>
+                        </div>
+
+                        <group>
+                            <group string="Inmate &amp; Route Facilities">
+                                <field name="inmate_id"/>
+                                <field name="from_facility_id"/>
+                                <field name="to_facility_id"/>
+                                <field name="requisition_date"/>
+                                <field name="transfer_reason"/>
+                            </group>
+                            <group string="Convoy Security &amp; Escort">
+                                <field name="escort_level"/>
+                                <field name="transit_vehicle_number"/>
+                                <field name="escort_commander"/>
+                                <field name="transit_dispatched_at"/>
+                                <field name="arrival_confirmed_at"/>
+                            </group>
+                        </group>
+
+                        <group string="Custody Handover Notes">
+                            <field name="handover_notes" placeholder="Notes on physical condition, property boxes handed over, fuel vouchers..."/>
+                        </group>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Transfer Action Window -->
+        <record id="action_prison_transfer" model="ir.actions.act_window">
+            <field name="name">Inter-Prison Transfers</field>
+            <field name="res_model">prison.transfer</field>
+            <field name="view_mode">list,form</field>
+        </record>
+    </data>
+</odoo>

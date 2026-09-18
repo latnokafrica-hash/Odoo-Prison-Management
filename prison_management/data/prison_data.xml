@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- National Prison Facilities -->
+        <record id="facility_kamiti_maximum" model="prison.facility">
+            <field name="name">Kamiti Maximum Security Penitentiary</field>
+            <field name="code">KMT-MAX-01</field>
+            <field name="facility_type">maximum</field>
+            <field name="city">Nairobi Central Region</field>
+            <field name="warden_name">Senior Deputy Commissioner P. Mutua</field>
+            <field name="phone">+254 20 871 0021</field>
+            <field name="capacity">1800</field>
+            <field name="notes"><p>Primary national maximum security facility holding Category A and B felons with high-perimeter watchtowers and electronic perimeter deterrence.</p></field>
+        </record>
+
+        <record id="facility_shimo_la_tewa" model="prison.facility">
+            <field name="name">Shimo La Tewa Medium &amp; Remand Prison</field>
+            <field name="code">SLT-MED-02</field>
+            <field name="facility_type">medium</field>
+            <field name="city">Mombasa Coastal Region</field>
+            <field name="warden_name">Assistant Commissioner J. Bakari</field>
+            <field name="phone">+254 41 447 1190</field>
+            <field name="capacity">1200</field>
+            <field name="notes"><p>Coastal regional hub catering for convicted medium-term prisoners and major appellate judicial court committals.</p></field>
+        </record>
+
+        <record id="facility_naivasha_maximum" model="prison.facility">
+            <field name="name">Naivasha Main Maximum Correctional Facility</field>
+            <field name="code">NVS-MAX-03</field>
+            <field name="facility_type">maximum</field>
+            <field name="city">Rift Valley Region</field>
+            <field name="warden_name">Senior Superintendent H. Koech</field>
+            <field name="phone">+254 50 202 0481</field>
+            <field name="capacity">2200</field>
+            <field name="notes"><p>Largest industrial correctional complex in the republic featuring heavy joinery, metalwork, and national agricultural farming schemes.</p></field>
+        </record>
+
+        <record id="facility_langata_women" model="prison.facility">
+            <field name="name">Lang'ata Women Correctional Facility</field>
+            <field name="code">LGT-WOM-04</field>
+            <field name="facility_type">women</field>
+            <field name="city">Nairobi South Region</field>
+            <field name="warden_name">Senior Superintendent Mary Wanjiku</field>
+            <field name="phone">+254 20 889 0134</field>
+            <field name="capacity">650</field>
+            <field name="notes"><p>Specialized female penitentiary equipped with daycare, maternal health suites, beauty therapy, and garment design academies.</p></field>
+        </record>
+
+        <!-- Vocational & Rehabilitation Programs -->
+        <record id="prog_joinery_carpentry" model="prison.program">
+            <field name="name">Industrial Joinery, Cabinet Making &amp; Furniture</field>
+            <field name="code">VOC-CARP-01</field>
+            <field name="category">vocational</field>
+            <field name="facility_id" ref="facility_naivasha_maximum"/>
+            <field name="daily_wage_rate">3.50</field>
+            <field name="capacity">45</field>
+            <field name="description">Accredited National Industrial Training Authority (NITA) Grade I-III timber craft and commercial furniture assembly.</field>
+        </record>
+
+        <record id="prog_garment_tailoring" model="prison.program">
+            <field name="name">Garment Production &amp; Industrial Tailoring</field>
+            <field name="code">VOC-TAIL-02</field>
+            <field name="category">vocational</field>
+            <field name="facility_id" ref="facility_langata_women"/>
+            <field name="daily_wage_rate">3.00</field>
+            <field name="capacity">60</field>
+            <field name="description">Commercial apparel manufacturing producing national uniforms, beddings, and civilian export apparel.</field>
+        </record>
+
+        <record id="prog_masonry_construction" model="prison.program">
+            <field name="name">Building Construction, Masonry &amp; Concreting</field>
+            <field name="code">VOC-MASN-03</field>
+            <field name="category">vocational</field>
+            <field name="facility_id" ref="facility_kamiti_maximum"/>
+            <field name="daily_wage_rate">3.00</field>
+            <field name="capacity">35</field>
+            <field name="description">Structural brickwork, paving block casting, and reinforced concrete construction training.</field>
+        </record>
+
+        <record id="prog_substance_recovery" model="prison.program">
+            <field name="name">Substance Abuse Cognitive Behavioral Therapy (CBT)</field>
+            <field name="code">REH-CBT-04</field>
+            <field name="category">psychological</field>
+            <field name="facility_id" ref="facility_shimo_la_tewa"/>
+            <field name="daily_wage_rate">1.50</field>
+            <field name="capacity">25</field>
+            <field name="description">Clinical relapse prevention, psycho-education, and emotional regulation program facilitated by clinical psychologists.</field>
+        </record>
+    </data>
+</odoo>

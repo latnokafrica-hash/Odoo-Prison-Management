@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Mail Template: Escape Red Alert Broadcast -->
+        <record id="mail_template_escape_alert" model="mail.template">
+            <field name="name">Corrections: Escape Red Alert Broadcast</field>
+            <field name="model_id" ref="model_prison_escape_incident"/>
+            <field name="subject">🚨 CRITICAL RED ALERT: Inmate Escape from {{ object.facility_id.name }}</field>
+            <field name="body_html" type="html">
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 3px solid #dc2626; border-radius: 8px;">
+                    <h2 style="color: #dc2626; margin-top: 0;">NATIONAL PRISON ESCAPE RED ALERT</h2>
+                    <p>An inmate has breached security and escaped from custody. All joint security commands, regional checkpoints, and border stations are alerted immediately.</p>
+                    <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                        <tr><td style="font-weight: bold; width: 30%;">Inmate Name:</td><td>{{ object.inmate_id.name }}</td></tr>
+                        <tr><td style="font-weight: bold;">Booking Number:</td><td>{{ object.inmate_id.booking_number }}</td></tr>
+                        <tr><td style="font-weight: bold;">Facility of Escape:</td><td>{{ object.facility_id.name }}</td></tr>
+                        <tr><td style="font-weight: bold;">Breach Scene:</td><td>{{ object.escape_location }}</td></tr>
+                        <tr><td style="font-weight: bold;">Modus Operandi:</td><td>{{ object.method_of_escape }}</td></tr>
+                        <tr><td style="font-weight: bold;">Danger Level:</td><td style="color: #dc2626; font-weight: bold;">{{ object.danger_level }}</td></tr>
+                    </table>
+                    <p style="background: #fee2e2; padding: 10px; border-radius: 4px; font-weight: bold; color: #991b1b;">
+                        CAUTION: Inmate may be dangerous. Do not approach alone. Alert National Security Operations Center immediately.
+                    </p>
+                </div>
+            </field>
+            <field name="auto_delete" eval="False"/>
+        </record>
+    </data>
+</odoo>

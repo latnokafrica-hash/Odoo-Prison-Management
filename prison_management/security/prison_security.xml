@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Security Category -->
+        <record id="module_category_prison_management" model="ir.module.category">
+            <field name="name">Correctional Services</field>
+            <field name="description">Access controls and authority levels for Prison Management &amp; Inmate Custody</field>
+            <field name="sequence">30</field>
+        </record>
+
+        <!-- Group: Corrections Officer / Guard -->
+        <record id="group_prison_officer" model="res.groups">
+            <field name="name">Custody Officer / Guard</field>
+            <field name="category_id" ref="module_category_prison_management"/>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+            <field name="comment">Operational prison staff handling muster rolls, escorts, and daily custody.</field>
+        </record>
+
+        <!-- Group: Sentence & Legal Records Clerk -->
+        <record id="group_prison_legal_clerk" model="res.groups">
+            <field name="name">Sentence &amp; Legal Records Clerk</field>
+            <field name="category_id" ref="module_category_prison_management"/>
+            <field name="implied_ids" eval="[(4, ref('group_prison_officer'))]"/>
+            <field name="comment">Court clerks and remission administrators computing statutory dates and court dockets.</field>
+        </record>
+
+        <!-- Group: Facility Superintendent / Warden -->
+        <record id="group_prison_warden" model="res.groups">
+            <field name="name">Facility Superintendent / Warden</field>
+            <field name="category_id" ref="module_category_prison_management"/>
+            <field name="implied_ids" eval="[(4, ref('group_prison_legal_clerk'))]"/>
+            <field name="comment">Head of a prison facility with authority to approve transfers, exit clearances, and disciplinary forfeitures.</field>
+        </record>
+
+        <!-- Group: National Commissioner / Director General -->
+        <record id="group_prison_director" model="res.groups">
+            <field name="name">National Director General / Commissioner</field>
+            <field name="category_id" ref="module_category_prison_management"/>
+            <field name="implied_ids" eval="[(4, ref('group_prison_warden'))]"/>
+            <field name="users" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+            <field name="comment">Executive national authority overseeing all correctional facilities across the republic.</field>
+        </record>
+
+        <!-- Multi-Facility Inmate Record Rule for Officers/Wardens -->
+        <record id="rule_prison_inmate_facility" model="ir.rule">
+            <field name="name">Inmates: Assigned Facility Only (Officers/Wardens)</field>
+            <field name="model_id" ref="model_prison_inmate"/>
+            <field name="domain_force">['|', ('facility_id', '=', False), ('facility_id.warden_id', '=', user.id)]</field>
+            <field name="groups" eval="[(4, ref('group_prison_warden'))]"/>
+        </record>
+
+        <!-- National Directorate Unrestricted Access -->
+        <record id="rule_prison_inmate_director_all" model="ir.rule">
+            <field name="name">Inmates: National Directorate Full Access</field>
+            <field name="model_id" ref="model_prison_inmate"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_prison_director'))]"/>
+        </record>
+    </data>
+</odoo>

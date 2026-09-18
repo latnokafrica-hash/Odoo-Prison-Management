@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Inmate Search View -->
+        <record id="view_prison_inmate_search" model="ir.ui.view">
+            <field name="name">prison.inmate.search</field>
+            <field name="model">prison.inmate</field>
+            <field name="arch" type="xml">
+                <search string="Search Inmate Custody Records">
+                    <field name="booking_number"/>
+                    <field name="name"/>
+                    <field name="national_id"/>
+                    <field name="alias"/>
+                    <field name="facility_id"/>
+
+                    <filter string="Remand (Awaiting Trial)" name="filter_remand" domain="[('custody_status', '=', 'remand')]"/>
+                    <filter string="Convicted (Serving Term)" name="filter_convicted" domain="[('custody_status', '=', 'convicted')]"/>
+                    <filter string="Category A (Max Security)" name="filter_cat_a" domain="[('security_category', '=', 'CAT_A')]"/>
+                    <separator/>
+                    <filter string="🚨 Escaped Fugitives" name="filter_escaped" domain="[('custody_status', '=', 'escaped')]"/>
+                    <filter string="Stage 4 (Pre-Release Trust)" name="filter_stage_4" domain="[('progressive_stage', '=', 'stage_4')]"/>
+
+                    <group expand="0" string="Group By">
+                        <filter string="Facility" name="group_facility" context="{'group_by': 'facility_id'}"/>
+                        <filter string="Custody Status" name="group_status" context="{'group_by': 'custody_status'}"/>
+                        <filter string="Security Category" name="group_security" context="{'group_by': 'security_category'}"/>
+                        <filter string="Progressive Stage" name="group_stage" context="{'group_by': 'progressive_stage'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- Inmate List View -->
+        <record id="view_prison_inmate_tree" model="ir.ui.view">
+            <field name="name">prison.inmate.list</field>
+            <field name="model">prison.inmate</field>
+            <field name="arch" type="xml">
+                <list string="Inmate Custody Roster" decoration-danger="custody_status == 'escaped'" decoration-warning="security_category == 'CAT_A'" decoration-info="custody_status == 'remand'">
+                    <field name="booking_number"/>
+                    <field name="name"/>
+                    <field name="gender"/>
+                    <field name="age"/>
+                    <field name="facility_id"/>
+                    <field name="cell_location"/>
+                    <field name="custody_status" widget="badge"/>
+                    <field name="security_category" widget="badge"/>
+                    <field name="progressive_stage" widget="badge"/>
+                    <field name="behavior_score"/>
+                    <field name="total_remission_days"/>
+                    <field name="gratuity_balance" widget="monetary"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Inmate Form View -->
+        <record id="view_prison_inmate_form" model="ir.ui.view">
+            <field name="name">prison.inmate.form</field>
+            <field name="model">prison.inmate</field>
+            <field name="arch" type="xml">
+                <form string="Inmate Custody Master File">
+                    <header>
+                        <button name="action_trigger_escape" string="🚨 Escape Red Alert" type="object" class="btn-danger" invisible="custody_status in ['escaped', 'discharged']"/>
+                        <button name="action_initiate_transfer" string="Transfer Requisition" type="object" class="btn-secondary" invisible="custody_status in ['escaped', 'discharged']"/>
+                        <button name="action_open_discharge_wizard" string="Exit Clearance" type="object" class="btn-primary" invisible="custody_status in ['escaped', 'discharged']"/>
+                        <field name="custody_status" widget="statusbar" statusbar_visible="remand,convicted,discharged"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="action_view_sentences" type="object" class="oe_stat_button" icon="fa-balance-scale">
+                                <field name="sentence_count" string="Sentences" widget="statinfo"/>
+                            </button>
+                            <button name="action_view_court_dockets" type="object" class="oe_stat_button" icon="fa-gavel">
+                                <field name="court_count" string="Court Cases" widget="statinfo"/>
+                            </button>
+                            <button class="oe_stat_button" icon="fa-money" type="action">
+                                <div class="o_stat_info">
+                                    <span class="o_stat_value"><field name="gratuity_balance"/> USD</span>
+                                    <span class="o_stat_text">Gratuity Balance</span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <field name="photo" widget="image" class="oe_avatar" options="{'preview_image': 'photo'}"/>
+                        
+                        <div class="oe_title">
+                            <span class="o_form_label">Prison Booking Number</span>
+                            <h1><field name="booking_number"/></h1>
+                            <h2><field name="name" placeholder="Inmate Name"/></h2>
+                        </div>
+
+                        <group>
+                            <group string="Personal &amp; Intake Bio">
+                                <field name="first_name"/>
+                                <field name="last_name"/>
+                                <field name="alias"/>
+                                <field name="national_id"/>
+                                <field name="gender"/>
+                                <field name="date_of_birth"/>
+                                <field name="age"/>
+                            </group>
+                            <group string="Custody &amp; Classification">
+                                <field name="facility_id"/>
+                                <field name="cell_location"/>
+                                <field name="admission_date"/>
+                                <field name="admission_type"/>
+                                <field name="security_category"/>
+                                <field name="progressive_stage"/>
+                                <field name="behavior_score"/>
+                            </group>
+                        </group>
+
+                        <notebook>
+                            <page string="Sentences &amp; Remission">
+                                <field name="sentence_ids">
+                                    <list string="Sentences">
+                                        <field name="court_name"/>
+                                        <field name="case_number"/>
+                                        <field name="offense"/>
+                                        <field name="term_years"/>
+                                        <field name="structure"/>
+                                        <field name="remission_earned_days"/>
+                                        <field name="remission_forfeited_days"/>
+                                        <field name="earliest_release_date"/>
+                                        <field name="status" widget="badge"/>
+                                    </list>
+                                </field>
+                            </page>
+
+                            <page string="Personal Property in Vault">
+                                <field name="property_ids">
+                                    <list string="Personal Property in Vault" editable="bottom">
+                                        <field name="description"/>
+                                        <field name="category"/>
+                                        <field name="quantity"/>
+                                        <field name="seal_bag_number"/>
+                                        <field name="condition"/>
+                                        <field name="status" widget="badge"/>
+                                    </list>
+                                </field>
+                            </page>
+
+                            <page string="Rehabilitation &amp; Gratuity">
+                                <group>
+                                    <group string="Vocational Enrollments">
+                                        <field name="rehab_enrollment_ids">
+                                            <list string="Programs" editable="bottom">
+                                                <field name="program_id"/>
+                                                <field name="enrollment_date"/>
+                                                <field name="progress_percentage" widget="progressbar"/>
+                                                <field name="status"/>
+                                            </list>
+                                        </field>
+                                    </group>
+                                    <group string="Labor Gratuity Ledger">
+                                        <field name="gratuity_transaction_ids">
+                                            <list string="Transactions">
+                                                <field name="date"/>
+                                                <field name="transaction_type"/>
+                                                <field name="amount"/>
+                                                <field name="description"/>
+                                            </list>
+                                        </field>
+                                    </group>
+                                </group>
+                            </page>
+
+                            <page string="Court Appearances">
+                                <field name="court_hearing_ids">
+                                    <list string="Hearings">
+                                        <field name="court_name"/>
+                                        <field name="hearing_date"/>
+                                        <field name="hearing_time"/>
+                                        <field name="hearing_type"/>
+                                        <field name="court_mode"/>
+                                        <field name="status" widget="badge"/>
+                                    </list>
+                                </field>
+                            </page>
+
+                            <page string="Human Rights &amp; UN Mandela Audits">
+                                <field name="human_rights_audit_ids">
+                                    <list string="Mandela Rules Audits">
+                                        <field name="date"/>
+                                        <field name="auditor_name"/>
+                                        <field name="inspection_type"/>
+                                        <field name="outdoor_hours_per_day"/>
+                                        <field name="consecutive_solitary_days"/>
+                                        <field name="compliance_status" widget="badge"/>
+                                    </list>
+                                </field>
+                            </page>
+
+                            <page string="Biometrics &amp; Emergency">
+                                <group>
+                                    <group string="Biometrics Reference">
+                                        <field name="biometric_fingerprint_enrolled"/>
+                                        <field name="biometric_iris_enrolled"/>
+                                        <field name="dna_sample_ref"/>
+                                        <field name="scars_tattoos"/>
+                                    </group>
+                                    <group string="Next of Kin &amp; Medical">
+                                        <field name="dietary_medical_notes"/>
+                                        <field name="emergency_contact_name"/>
+                                        <field name="emergency_contact_phone"/>
+                                        <field name="emergency_contact_relation"/>
+                                    </group>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Inmate Action Window -->
+        <record id="action_prison_inmate" model="ir.actions.act_window">
+            <field name="name">Inmate Custody Master Records</field>
+            <field name="res_model">prison.inmate</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_prison_inmate_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">Admit a new prisoner or register a committal warrant.</p>
+            </field>
+        </record>
+    </data>
+</odoo>

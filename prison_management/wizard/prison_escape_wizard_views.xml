@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_prison_escape_wizard_form" model="ir.ui.view">
+            <field name="name">prison.escape.wizard.form</field>
+            <field name="model">prison.escape.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Escape &amp; Recapture Incident Protocol">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="inmate_id" readonly="1"/>
+                                <field name="facility_id" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="action_mode" widget="radio"/>
+                            </group>
+                        </group>
+
+                        <notebook>
+                            <page string="Escape Incident Details" invisible="action_mode != 'escape_alert'">
+                                <div class="alert alert-danger" role="alert">
+                                    <strong>CRITICAL ACTION:</strong> This will place the inmate into 'Escaped' status, lock custody movements, and broadcast an emergency alert across all correctional commands.
+                                </div>
+                                <group>
+                                    <field name="escape_location" placeholder="e.g. Workshop Yard Perimeter Gate 3"/>
+                                    <field name="method_of_escape" placeholder="e.g. Scaled perimeter fence using improvised ladder"/>
+                                    <field name="danger_level" widget="radio"/>
+                                </group>
+                            </page>
+
+                            <page string="Recapture Processing" invisible="action_mode != 'recapture'">
+                                <div class="alert alert-success" role="alert">
+                                    <strong>RECAPTURE ACTION:</strong> Re-admits the fugitive into custody under Maximum Security (CAT A) and enforces statutory remission forfeiture for prison breach.
+                                </div>
+                                <group>
+                                    <field name="recaptured_date"/>
+                                    <field name="recaptured_by"/>
+                                    <field name="disciplinary_forfeiture_days"/>
+                                    <field name="demote_progressive_stage"/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <footer>
+                        <button name="action_execute_protocol" string="Execute Security Protocol" type="object" class="btn-danger"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+    </data>
+</odoo>

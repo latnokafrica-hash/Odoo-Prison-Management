@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="view_prison_discharge_wizard_form" model="ir.ui.view">
+            <field name="name">prison.discharge.wizard.form</field>
+            <field name="model">prison.discharge.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Prisons Act Custodial Discharge Verification">
+                    <sheet>
+                        <div class="alert alert-info" role="alert">
+                            <strong>MANDATORY 7-POINT EXIT PROTOCOL:</strong> Under the Prisons Act, every inmate being released must undergo strict forensic identification, judicial verification, property restitution, and aftercare assignment.
+                        </div>
+                        <group>
+                            <group>
+                                <field name="inmate_id" readonly="1"/>
+                                <field name="facility_id"/>
+                            </group>
+                            <group>
+                                <field name="discharge_type"/>
+                                <field name="aftercare_officer_name"/>
+                            </group>
+                        </group>
+
+                        <separator string="7-Point Exit Verification Checklist"/>
+                        <group>
+                            <group>
+                                <field name="chk_biometric_exit_match"/>
+                                <field name="chk_judicial_no_hold"/>
+                                <field name="chk_medical_exit_exam"/>
+                                <field name="chk_property_returned"/>
+                            </group>
+                            <group>
+                                <field name="chk_gratuity_disbursed"/>
+                                <field name="chk_transport_voucher"/>
+                                <field name="chk_aftercare_assigned"/>
+                            </group>
+                        </group>
+                    </sheet>
+                    <footer>
+                        <button name="action_generate_clearance" string="Approve Clearance &amp; Generate Gate Pass" type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+    </data>
+</odoo>

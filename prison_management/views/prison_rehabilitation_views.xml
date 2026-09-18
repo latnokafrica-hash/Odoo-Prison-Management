@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Vocational Program List View -->
+        <record id="view_prison_program_tree" model="ir.ui.view">
+            <field name="name">prison.program.list</field>
+            <field name="model">prison.program</field>
+            <field name="arch" type="xml">
+                <list string="Vocational Workshops &amp; Programs">
+                    <field name="code"/>
+                    <field name="name"/>
+                    <field name="category"/>
+                    <field name="facility_id"/>
+                    <field name="daily_wage_rate"/>
+                    <field name="capacity"/>
+                    <field name="active"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Vocational Program Form View -->
+        <record id="view_prison_program_form" model="ir.ui.view">
+            <field name="name">prison.program.form</field>
+            <field name="model">prison.program</field>
+            <field name="arch" type="xml">
+                <form string="Vocational &amp; Rehabilitation Workshop">
+                    <sheet>
+                        <div class="oe_title">
+                            <label for="name" string="Workshop / Program Name"/>
+                            <h1><field name="name" placeholder="e.g. Industrial Joinery &amp; Timber Craft"/></h1>
+                            <h3><field name="code" placeholder="e.g. VOC-CARP-01"/></h3>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="category"/>
+                                <field name="facility_id"/>
+                            </group>
+                            <group>
+                                <field name="daily_wage_rate"/>
+                                <field name="capacity"/>
+                                <field name="active"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Syllabus &amp; Certification">
+                                <field name="description" placeholder="Trade test accreditation details, safety equipment, tools catalog..."/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- Program Action Window -->
+        <record id="action_prison_program" model="ir.actions.act_window">
+            <field name="name">Rehabilitation &amp; Vocational Workshops</field>
+            <field name="res_model">prison.program</field>
+            <field name="view_mode">list,form</field>
+        </record>
+    </data>
+</odoo>

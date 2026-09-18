@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Sequence: Inmate Booking Number -->
+        <record id="seq_prison_inmate_booking" model="ir.sequence">
+            <field name="name">Inmate Booking Number</field>
+            <field name="code">prison.inmate.booking</field>
+            <field name="prefix">PRI/%(year)s/</field>
+            <field name="padding">5</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Sequence: Transfer Requisition Reference -->
+        <record id="seq_prison_transfer_req" model="ir.sequence">
+            <field name="name">Inter-Prison Transfer Requisition</field>
+            <field name="code">prison.transfer.req</field>
+            <field name="prefix">TRF/%(year)s/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Sequence: Discharge Clearance Certificate -->
+        <record id="seq_prison_discharge_cert" model="ir.sequence">
+            <field name="name">Discharge Clearance Certificate</field>
+            <field name="code">prison.discharge.cert</field>
+            <field name="prefix">DIS/%(year)s/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Sequence: Official Gate Pass Number -->
+        <record id="seq_prison_gate_pass" model="ir.sequence">
+            <field name="name">Prison Gate Pass Seal</field>
+            <field name="code">prison.gate.pass</field>
+            <field name="prefix">GP-%(year)s-</field>
+            <field name="padding">5</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+</odoo>

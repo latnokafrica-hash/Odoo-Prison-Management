@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_gate_pass_template">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page" style="font-family: Arial, sans-serif; font-size: 13px;">
+                        <div class="text-center" style="border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 20px;">
+                            <h2 style="margin: 0; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;">National Directorate of Correctional Services</h2>
+                            <h4 style="margin: 5px 0 0 0; text-transform: uppercase;">Official Prisons Act Exit Clearance Certificate &amp; Gate Pass</h4>
+                            <p style="margin: 2px 0 0 0; font-size: 12px; color: #555;">Issued pursuant to Section 48 of the Prisons Act &amp; Statutory Remission Rules</p>
+                        </div>
+
+                        <div class="row" style="margin-bottom: 20px;">
+                            <div class="col-6">
+                                <strong>Certificate No:</strong> <span t-field="o.name"/><br/>
+                                <strong>Official Gate Pass:</strong> <span t-field="o.gate_pass_number" style="font-size: 15px; font-weight: bold; color: #b91c1c;"/><br/>
+                                <strong>Clearance Date:</strong> <span t-field="o.clearance_date"/><br/>
+                                <strong>Discharging Facility:</strong> <span t-field="o.facility_id.name"/>
+                            </div>
+                            <div class="col-6 text-end">
+                                <strong>Discharge Basis:</strong> <span t-field="o.discharge_type"/><br/>
+                                <strong>Warden Clearance:</strong> <span t-field="o.status"/><br/>
+                                <strong>Probation / Aftercare Officer:</strong> <span t-field="o.aftercare_officer_name"/>
+                            </div>
+                        </div>
+
+                        <h5 style="background: #e2e8f0; padding: 6px 10px; font-weight: bold; text-transform: uppercase; font-size: 12px;">Inmate Custodial Profile</h5>
+                        <table class="table table-bordered table-sm" style="margin-bottom: 20px;">
+                            <tr>
+                                <th style="width: 25%;">Full Legal Name:</th>
+                                <td style="width: 25%;"><span t-field="o.inmate_id.name"/></td>
+                                <th style="width: 25%;">Booking / Prison No:</th>
+                                <td style="width: 25%;"><span t-field="o.inmate_id.booking_number"/></td>
+                            </tr>
+                            <tr>
+                                <th>National ID / Passport:</th>
+                                <td><span t-field="o.inmate_id.national_id"/></td>
+                                <th>Gender / Age:</th>
+                                <td><span t-field="o.inmate_id.gender"/> / <span t-field="o.inmate_id.age"/> yrs</td>
+                            </tr>
+                            <tr>
+                                <th>Original Admission Date:</th>
+                                <td><span t-field="o.inmate_id.admission_date"/></td>
+                                <th>Progressive Stage at Exit:</th>
+                                <td><span t-field="o.inmate_id.progressive_stage"/></td>
+                            </tr>
+                        </table>
+
+                        <h5 style="background: #e2e8f0; padding: 6px 10px; font-weight: bold; text-transform: uppercase; font-size: 12px;">Mandatory 7-Point Exit Clearance Audit</h5>
+                        <table class="table table-sm" style="margin-bottom: 25px;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid #ccc;">
+                                    <th>#</th>
+                                    <th>Statutory Clearance Protocol</th>
+                                    <th>Verification Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1</td>
+                                    <td>Exit Biometric 10-Print Forensic Match</td>
+                                    <td><span t-if="o.chk_biometric_exit_match" style="color: green; font-weight: bold;">VERIFIED MATCH</span><span t-else="" style="color: red;">PENDING</span></td>
+                                </tr>
+                                <tr>
+                                    <td>2</td>
+                                    <td>National Judicial "No-Hold / Outstanding Warrants" Search</td>
+                                    <td><span t-if="o.chk_judicial_no_hold" style="color: green; font-weight: bold;">CLEARED (NO OUTSTANDING WARRANTS)</span><span t-else="" style="color: red;">PENDING</span></td>
+                                </tr>
+                                <tr>
+                                    <td>3</td>
+                                    <td>Medical Officer Fit-for-Discharge Examination</td>
+                                    <td><span t-if="o.chk_medical_exit_exam" style="color: green; font-weight: bold;">CERTIFIED CLEARED</span><span t-else="" style="color: red;">PENDING</span></td>
+                                </tr>
+                                <tr>
+                                    <td>4</td>
+                                    <td>Personal Property &amp; Valuables Vault Restitution</td>
+                                    <td><span t-if="o.chk_property_returned" style="color: green; font-weight: bold;">RETURNED &amp; SIGNED</span><span t-else="" style="color: red;">PENDING</span></td>
+                                </tr>
+                                <tr>
+                                    <td>5</td>
+                                    <td>Labor Gratuity Earnings Settlement (<span t-field="o.gratuity_disbursed_amount"/> USD)</td>
+                                    <td><span t-if="o.chk_gratuity_disbursed" style="color: green; font-weight: bold;">DISBURSED IN FULL</span><span t-else="" style="color: red;">PENDING</span></td>
+                                </tr>
+                                <tr>
+                                    <td>6</td>
+                                    <td>Statutory Transport Travel Voucher</td>
+                                    <td><span t-if="o.chk_transport_voucher" style="color: green; font-weight: bold;">ISSUED</span><span t-else="" style="color: red;">PENDING</span></td>
+                                </tr>
+                                <tr>
+                                    <td>7</td>
+                                    <td>Community Aftercare &amp; Probation Officer Handover</td>
+                                    <td><span t-if="o.chk_aftercare_assigned" style="color: green; font-weight: bold;">ASSIGNED</span><span t-else="" style="color: red;">PENDING</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="row" style="margin-top: 50px;">
+                            <div class="col-4 text-center">
+                                <div style="border-top: 1px solid #000; padding-top: 5px;">
+                                    <strong>Chief Reception Officer</strong><br/>
+                                    <span>Signature &amp; Service No.</span>
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div style="border-top: 1px solid #000; padding-top: 5px;">
+                                    <strong>Superintendent / Warden</strong><br/>
+                                    <span>Facility Seal &amp; Approval</span>
+                                </div>
+                            </div>
+                            <div class="col-4 text-center">
+                                <div style="border-top: 1px solid #000; padding-top: 5px;">
+                                    <strong>Discharged Inmate</strong><br/>
+                                    <span>Right Thumbprint / Signature</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

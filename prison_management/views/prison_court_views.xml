@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Court Hearing List View -->
+        <record id="view_prison_court_hearing_tree" model="ir.ui.view">
+            <field name="name">prison.court.hearing.list</field>
+            <field name="model">prison.court.hearing</field>
+            <field name="arch" type="xml">
+                <list string="Judicial Court Docket &amp; Escorts" decoration-warning="status == 'in_transit'" decoration-info="status == 'scheduled'" decoration-success="status in ['admitted_bail', 'acquitted']">
+                    <field name="hearing_date"/>
+                    <field name="hearing_time"/>
+                    <field name="inmate_id"/>
+                    <field name="case_number"/>
+                    <field name="court_name"/>
+                    <field name="hearing_type"/>
+                    <field name="court_mode" widget="badge"/>
+                    <field name="escort_team"/>
+                    <field name="transport_vehicle_number"/>
+                    <field name="status" widget="badge"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Court Hearing Form View -->
+        <record id="view_prison_court_hearing_form" model="ir.ui.view">
+            <field name="name">prison.court.hearing.form</field>
+            <field name="model">prison.court.hearing</field>
+            <field name="arch" type="xml">
+                <form string="Judicial Court Docket">
+                    <header>
+                        <button name="action_dispatch_escort" string="Dispatch Armed Escort" type="object" class="btn-primary" invisible="status != 'scheduled'"/>
+                        <button name="action_arrive_court" string="Mark Present in Court" type="object" class="btn-secondary" invisible="status != 'in_transit'"/>
+                        <button name="action_return_remanded" string="Return Remanded" type="object" class="btn-secondary" invisible="status != 'at_court'"/>
+                        <button name="action_bail_release" string="Release on Bail" type="object" class="btn-success" invisible="status != 'at_court'"/>
+                        <field name="status" widget="statusbar" statusbar_visible="scheduled,in_transit,at_court,returned_remanded"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <label for="case_number" string="Court Case Number"/>
+                            <h1><field name="case_number" placeholder="e.g. CR-2026/894"/></h1>
+                            <h3><field name="court_name" placeholder="Court &amp; Division"/></h3>
+                        </div>
+
+                        <group>
+                            <group string="Inmate &amp; Appearance">
+                                <field name="inmate_id"/>
+                                <field name="facility_id"/>
+                                <field name="hearing_date"/>
+                                <field name="hearing_time"/>
+                                <field name="hearing_type"/>
+                                <field name="court_mode"/>
+                            </group>
+                            <group string="Security Escort Squad &amp; Transport">
+                                <field name="judge_name"/>
+                                <field name="escort_team"/>
+                                <field name="transport_vehicle_number"/>
+                            </group>
+                        </group>
+
+                        <group string="Judicial Outcome Orders &amp; Remarks">
+                            <field name="outcome_notes" placeholder="Enter judicial rulings, bond terms, next mention dates..."/>
+                        </group>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Court Hearing Action Window -->
+        <record id="action_prison_court_hearing" model="ir.actions.act_window">
+            <field name="name">Court Attendance &amp; Production Docket</field>
+            <field name="res_model">prison.court.hearing</field>
+            <field name="view_mode">list,form</field>
+        </record>
+    </data>
+</odoo>

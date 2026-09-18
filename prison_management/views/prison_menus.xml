@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Root Top-Level Prison Management App Menu -->
+        <menuitem id="menu_prison_root"
+                  name="Corrections ERP"
+                  sequence="25"
+                  web_icon="prison_management,static/description/icon.png"/>
+
+        <!-- Top Menu: Inmates & Custody -->
+        <menuitem id="menu_prison_custody"
+                  name="Inmates &amp; Custody"
+                  parent="menu_prison_root"
+                  sequence="10"/>
+
+        <menuitem id="menu_prison_inmate_records"
+                  name="Inmate Master Records"
+                  parent="menu_prison_custody"
+                  action="action_prison_inmate"
+                  sequence="10"/>
+
+        <menuitem id="menu_prison_transfers"
+                  name="Inter-Prison Transfers"
+                  parent="menu_prison_custody"
+                  action="action_prison_transfer"
+                  sequence="20"/>
+
+        <!-- Top Menu: Sentence Administration & Judicial -->
+        <menuitem id="menu_prison_legal"
+                  name="Sentence &amp; Legal"
+                  parent="menu_prison_root"
+                  sequence="20"/>
+
+        <menuitem id="menu_prison_sentences"
+                  name="Sentences &amp; Remissions"
+                  parent="menu_prison_legal"
+                  action="action_prison_sentence"
+                  sequence="10"/>
+
+        <menuitem id="menu_prison_court_dockets"
+                  name="Court Attendance Dockets"
+                  parent="menu_prison_legal"
+                  action="action_prison_court_hearing"
+                  sequence="20"/>
+
+        <!-- Top Menu: Rehabilitation & Human Rights -->
+        <menuitem id="menu_prison_rehab"
+                  name="Rehabilitation &amp; Rights"
+                  parent="menu_prison_root"
+                  sequence="30"/>
+
+        <menuitem id="menu_prison_programs"
+                  name="Vocational &amp; Work Schemes"
+                  parent="menu_prison_rehab"
+                  action="action_prison_program"
+                  sequence="10"/>
+
+        <menuitem id="menu_prison_human_rights"
+                  name="UN Mandela Rules Audits"
+                  parent="menu_prison_rehab"
+                  action="action_prison_human_rights_audit"
+                  sequence="20"/>
+
+        <!-- Top Menu: National Directorate Configuration -->
+        <menuitem id="menu_prison_directorate"
+                  name="National Directorate"
+                  parent="menu_prison_root"
+                  sequence="40"/>
+
+        <menuitem id="menu_prison_facilities"
+                  name="Correctional Facilities"
+                  parent="menu_prison_directorate"
+                  action="action_prison_facility"
+                  sequence="10"/>
+    </data>
+</odoo>

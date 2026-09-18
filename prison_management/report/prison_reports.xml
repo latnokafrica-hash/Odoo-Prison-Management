@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Gate Pass & Exit Clearance Certificate Report Action -->
+        <record id="action_report_gate_pass" model="ir.actions.report">
+            <field name="name">Prison Act Gate Pass &amp; Exit Clearance Certificate</field>
+            <field name="model">prison.discharge.clearance</field>
+            <field name="report_type">qweb-pdf</field>
+            <field name="report_name">prison_management.report_gate_pass_template</field>
+            <field name="report_file">prison_management.report_gate_pass_template</field>
+            <field name="print_report_name">'Gate_Pass_%s' % (object.gate_pass_number or object.name)</field>
+            <field name="binding_model_id" ref="model_prison_discharge_clearance"/>
+            <field name="binding_type">report</field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Sentence Tree View -->
+        <record id="view_prison_sentence_tree" model="ir.ui.view">
+            <field name="name">prison.sentence.list</field>
+            <field name="model">prison.sentence</field>
+            <field name="arch" type="xml">
+                <list string="Sentences &amp; Statutory Remissions">
+                    <field name="inmate_id"/>
+                    <field name="facility_id"/>
+                    <field name="court_name"/>
+                    <field name="case_number"/>
+                    <field name="offense"/>
+                    <field name="term_years"/>
+                    <field name="structure"/>
+                    <field name="remission_earned_days"/>
+                    <field name="remission_forfeited_days"/>
+                    <field name="net_remission_days"/>
+                    <field name="earliest_release_date"/>
+                    <field name="latest_release_date"/>
+                    <field name="status" widget="badge"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Sentence Form View -->
+        <record id="view_prison_sentence_form" model="ir.ui.view">
+            <field name="name">prison.sentence.form</field>
+            <field name="model">prison.sentence</field>
+            <field name="arch" type="xml">
+                <form string="Sentence &amp; Remission File">
+                    <header>
+                        <field name="status" widget="statusbar" statusbar_visible="serving,parole,expired"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <label for="offense" string="Offense / Criminal Conviction"/>
+                            <h1><field name="offense" placeholder="e.g. Armed Robbery C/S 296(2) Penal Code"/></h1>
+                            <h3><field name="case_number" placeholder="Criminal Case / Warrant No."/></h3>
+                        </div>
+
+                        <group>
+                            <group string="Inmate &amp; Judicial Origin">
+                                <field name="inmate_id"/>
+                                <field name="facility_id"/>
+                                <field name="court_name"/>
+                                <field name="judge_name"/>
+                                <field name="date_convicted"/>
+                            </group>
+                            <group string="Term Duration &amp; Structure">
+                                <field name="sentence_type"/>
+                                <field name="structure"/>
+                                <label for="term_years" string="Sentence Term"/>
+                                <div class="o_row">
+                                    <field name="term_years"/> Yrs, 
+                                    <field name="term_months"/> Mos, 
+                                    <field name="term_days"/> Days
+                                </div>
+                                <field name="total_sentence_days"/>
+                            </group>
+                        </group>
+
+                        <group string="Statutory Remission &amp; Release Dates Engine">
+                            <group>
+                                <field name="statutory_remission_fraction" widget="percentage"/>
+                                <field name="remission_earned_days"/>
+                                <field name="remission_forfeited_days"/>
+                                <field name="net_remission_days"/>
+                            </group>
+                            <group>
+                                <field name="earliest_release_date" class="oe_bold"/>
+                                <field name="latest_release_date"/>
+                                <field name="parole_eligibility_date"/>
+                            </group>
+                        </group>
+
+                        <notebook>
+                            <page string="Disciplinary Forfeitures &amp; Restorations">
+                                <field name="remission_log_ids">
+                                    <list string="Remission Adjustments" editable="bottom">
+                                        <field name="log_date"/>
+                                        <field name="log_type"/>
+                                        <field name="days"/>
+                                        <field name="infraction_reason"/>
+                                        <field name="adjudicator_name"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <!-- Sentence Action Window -->
+        <record id="action_prison_sentence" model="ir.actions.act_window">
+            <field name="name">Sentence &amp; Remission Administration</field>
+            <field name="res_model">prison.sentence</field>
+            <field name="view_mode">list,form</field>
+        </record>
+    </data>
+</odoo>

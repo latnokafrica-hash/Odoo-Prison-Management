@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Demo Inmate -->
+        <record id="demo_inmate_john_mwangi" model="prison.inmate">
+            <field name="first_name">John</field>
+            <field name="last_name">Mwangi</field>
+            <field name="alias">Kevo</field>
+            <field name="gender">male</field>
+            <field name="date_of_birth">1991-04-18</field>
+            <field name="national_id">28491023</field>
+            <field name="facility_id" ref="facility_kamiti_maximum"/>
+            <field name="cell_location">Block B, Cell 14</field>
+            <field name="admission_date">2022-03-15</field>
+            <field name="admission_type">court_committal</field>
+            <field name="custody_status">convicted</field>
+            <field name="security_category">CAT_B</field>
+            <field name="progressive_stage">stage_3</field>
+            <field name="behavior_score">88</field>
+            <field name="emergency_contact_name">Grace Wambui</field>
+            <field name="emergency_contact_phone">+254 722 998 112</field>
+            <field name="emergency_contact_relation">Spouse</field>
+        </record>
+
+        <!-- Demo Sentence -->
+        <record id="demo_sentence_mwangi_1" model="prison.sentence">
+            <field name="inmate_id" ref="demo_inmate_john_mwangi"/>
+            <field name="court_name">High Court of Kenya - Anti-Corruption Division</field>
+            <field name="case_number">HCCRC-2022/104</field>
+            <field name="judge_name">Hon. Justice M. Ngugi</field>
+            <field name="date_convicted">2022-03-15</field>
+            <field name="offense">Conspiracy to Defraud and Robbery C/S 296(1)</field>
+            <field name="term_years">6</field>
+            <field name="term_months">0</field>
+            <field name="term_days">0</field>
+            <field name="sentence_type">determinate</field>
+            <field name="structure">concurrent</field>
+        </record>
+    </data>
+</odoo>
