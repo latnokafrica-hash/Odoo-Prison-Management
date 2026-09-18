@@ -1,4 +1,4 @@
-Design of an Odoo 19 module to automate "Prison Management" , a complete end-to-end solution for the inmates (Prisoner) inside the prison. 
+This an Odoo 19 module to automate "Prison Management" , a complete end-to-end solution for the inmates (Prisoner) inside the prison. 
 The software also handles the management of multiple Prisons spread across the country with following applications: Admission of prisoners involves transfers,re-admit after bail, escape &
 recapture processes.
 Discharge and exit management from Custody.
