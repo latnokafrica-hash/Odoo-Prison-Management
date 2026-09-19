@@ -52,6 +52,7 @@ export type AppSection =
   | 'dashboard'
   | 'inmates'
   | 'facilities'
+  | 'inspections'
   | 'rooms'
   | 'court_calendar'
   | 'court'
@@ -63,6 +64,7 @@ export type AppSection =
   | 'rehabilitation'
   | 'discharge'
   | 'human_rights'
+  | 'handover'
   | 'odoo_code';
 
 export type AdmissionType = 
@@ -284,6 +286,24 @@ export interface VitalSigns {
   bmi: number;
 }
 
+export type MedicalFlagSeverity = 'critical' | 'needs_specialist' | 'chronic' | 'stable';
+
+export interface MedicalFlagDetails {
+  severity: MedicalFlagSeverity;
+  label: string; // 'Critical' | 'Needs Specialist' | 'Chronic' | 'Fit / Stable'
+  conditionName: string;
+  allConditions: string[];
+  notes?: string;
+  specialistSpecialty?: string;
+  requiresHospitalization?: boolean;
+  requiresIsolation?: boolean;
+  activeMedicationsCount: number;
+  allergiesCount: number;
+  vitalsSummary?: string;
+  screeningDate?: string;
+  examiningDoctor?: string;
+}
+
 export interface MedicalIntakeRecord {
   id: string;
   screeningDate: string;
@@ -296,6 +316,9 @@ export interface MedicalIntakeRecord {
   vitals: VitalSigns;
   initialScreeningNotes: string;
   chronicConditions: string[];
+  medicalFlagSeverity?: MedicalFlagSeverity;
+  flaggedCondition?: string;
+  specialistReferralSpecialty?: string;
   mentalHealthScreening: {
     suicideRiskLevel: 'none' | 'low' | 'moderate' | 'high_observation';
     substanceWithdrawalRisk: boolean;
@@ -556,5 +579,267 @@ export interface FleetConvoy {
   securityRating: 'CAT_A_HIGH_THREAT' | 'STANDARD_SECURE' | 'MINIMUM_ESCORT';
   status: 'planned' | 'staging' | 'en_route_court' | 'at_court' | 'en_route_prison' | 'completed';
   radioLog: string;
+}
+
+// Staff Duty Roster Interfaces
+export type ShiftType = 'morning' | 'afternoon' | 'night' | 'standby';
+export type DutyStatus = 'on_duty' | 'on_break' | 'standby' | 'off_duty';
+export type OfficerRank = 
+  | 'Chief Inspector'
+  | 'Inspector'
+  | 'Senior Sergeant'
+  | 'Sergeant'
+  | 'Corporal'
+  | 'Correctional Officer'
+  | 'Tactical Specialist';
+
+export interface StaffDutyAssignment {
+  id: string;
+  officerId: string;
+  badgeNumber: string;
+  officerName: string;
+  rank: OfficerRank;
+  facilityId: string;
+  facilityName: string;
+  blockId: string;
+  blockName: string;
+  shift: ShiftType;
+  shiftHours: string;
+  roleOnDuty: string; // e.g. 'Block Supervisor', 'Tier Sentinel', 'Control Room Operator'
+  dutyStatus: DutyStatus;
+  isArmed: boolean;
+  weaponType?: string;
+  radioCallSign: string;
+  contactExtension: string;
+  musterCheckInTime?: string;
+  specialization?: string;
+  avatarUrl?: string;
+  notes?: string;
+}
+
+// Shift Handover Brief Interfaces
+export type RiskSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+export type RiskCategory = 
+  | 'security_inmate' 
+  | 'structural_locks' 
+  | 'perimeter_surveillance' 
+  | 'medical_mental' 
+  | 'contraband_tension' 
+  | 'overcrowding';
+
+export interface FacilityRiskItem {
+  id: string;
+  category: RiskCategory;
+  title: string;
+  description: string;
+  severity: RiskSeverity;
+  location: string;
+  mitigation: string;
+  reportedBy: string;
+  reportedAt: string;
+  isAcknowledgedByIncoming: boolean;
+}
+
+export type TaskPriority = 'urgent' | 'high' | 'routine';
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'deferred';
+export type TaskCategory = 
+  | 'court_returns' 
+  | 'meal_distribution' 
+  | 'headcount_lockdown' 
+  | 'medical_escort' 
+  | 'maintenance' 
+  | 'visitor_reconciliation';
+
+export interface PendingTaskItem {
+  id: string;
+  title: string;
+  description: string;
+  priority: TaskPriority;
+  assignedRole: string;
+  assignedOfficer: string;
+  dueTime: string;
+  status: TaskStatus;
+  category: TaskCategory;
+  notes?: string;
+  completedAt?: string;
+}
+
+export type EquipmentCategory = 
+  | 'keys_security' 
+  | 'armory_firearms' 
+  | 'tactical_protection' 
+  | 'radios_comms' 
+  | 'body_cameras' 
+  | 'restraints_cuffs';
+
+export type EquipmentCondition = 'operational' | 'defective' | 'missing' | 'maintenance';
+
+export interface EquipmentInventoryItem {
+  id: string;
+  category: EquipmentCategory;
+  name: string;
+  expectedQty: number;
+  countedQty: number;
+  unit: string;
+  condition: EquipmentCondition;
+  storageLocation: string;
+  discrepancyNote?: string;
+  serialNumbers?: string[];
+  verifiedByBoth: boolean;
+}
+
+export interface CommanderSignOff {
+  commanderId: string;
+  commanderName: string;
+  rank: string;
+  badgeNumber: string;
+  signatureType: 'digital_canvas' | 'biometric_token' | 'pki_smartcard';
+  signatureData: string; // Base64 dataURL or digital signature certificate string
+  signedAt: string;
+  declarationConfirmed: boolean;
+  handoverNotes?: string;
+  exceptionsNoted?: string;
+}
+
+export type HandoverStatus = 
+  | 'draft' 
+  | 'outgoing_signed' 
+  | 'fully_signed' 
+  | 'governor_certified' 
+  | 'archived';
+
+export interface ShiftHandoverBriefData {
+  id: string;
+  referenceNumber: string;
+  facilityId: string;
+  facilityName: string;
+  date: string;
+  outgoingShift: ShiftType;
+  incomingShift: ShiftType;
+  status: HandoverStatus;
+  headcountSummary: {
+    totalInmates: number;
+    certifiedCapacity: number;
+    remandCount: number;
+    convictedCount: number;
+    highSecurityCount: number;
+    solitaryCount: number;
+    hospitalCount: number;
+    courtTransitCount: number;
+    rollCallDiscrepancy: number; // 0 = perfect match
+  };
+  risks: FacilityRiskItem[];
+  tasks: PendingTaskItem[];
+  equipment: EquipmentInventoryItem[];
+  outgoingSignOff: CommanderSignOff | null;
+  incomingSignOff: CommanderSignOff | null;
+  governorSignOff: CommanderSignOff | null;
+  generalNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Facility Inspection, Infrastructure & Sanitation Interfaces
+export type InspectionType = 
+  | 'routine_daily'
+  | 'weekly_comprehensive'
+  | 'monthly_structural'
+  | 'surprise_shakedown'
+  | 'mandela_sanitation_audit';
+
+export type InspectionStatus = 
+  | 'passed'
+  | 'minor_issues'
+  | 'critical_fail'
+  | 'in_progress';
+
+export type InfrastructureCategory = 
+  | 'locks_doors'
+  | 'bars_grilles'
+  | 'surveillance_cctv'
+  | 'ventilation_air'
+  | 'plumbing_sanitary'
+  | 'electrical_lighting'
+  | 'fire_life_safety'
+  | 'anti_ligature';
+
+export interface InfrastructureCheckItem {
+  id: string;
+  category: InfrastructureCategory;
+  name: string;
+  standardCode: string; // e.g. 'KPS-SEC-01', 'MANDELA-R14', 'NFPA-101'
+  status: 'pass' | 'flagged' | 'critical_fail' | 'na';
+  notes?: string;
+  lastChecked: string;
+}
+
+export interface MaintenanceWorkOrder {
+  id: string;
+  orderNumber: string;
+  facilityId: string;
+  facilityName: string;
+  blockId: string;
+  blockName: string;
+  cellRoomId?: string;
+  cellRoomName?: string;
+  category: 'lock_mechanism' | 'bars_grille' | 'sanitary_plumbing' | 'lighting_electrical' | 'ventilation' | 'structural_masonry' | 'cctv_sensor';
+  priority: 'low' | 'medium' | 'high' | 'urgent_security_breach';
+  title: string;
+  description: string;
+  reportedBy: string;
+  assignedTechnician?: string;
+  reportedDate: string;
+  targetCompletionDate: string;
+  completedDate?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'on_hold';
+  estimatedCostKes?: number;
+  partsRequired?: string;
+}
+
+export interface SanitationViolation {
+  id: string;
+  caseNumber: string;
+  facilityId: string;
+  facilityName: string;
+  blockId: string;
+  blockName: string;
+  locationDetail: string;
+  violationType: 'black_mold_infestation' | 'sewage_leak' | 'blocked_drainage' | 'vermin_pest_activity' | 'inadequate_ventilation' | 'unpotable_water' | 'waste_accumulation' | 'soiled_bedding';
+  severity: 'minor' | 'major' | 'critical_health_hazard';
+  mandelaRuleRef: string;
+  description: string;
+  remedialAction: string;
+  reportedDate: string;
+  remedyDeadline: string;
+  inspectedByOfficer: string;
+  assignedHealthOfficer?: string;
+  status: 'active' | 'fumigation_scheduled' | 'rectification_underway' | 'rectified' | 'reinspected_resolved' | 'closed';
+}
+
+export interface CellBlockInspectionRecord {
+  id: string;
+  inspectionCode: string;
+  facilityId: string;
+  facilityName: string;
+  blockId: string;
+  blockName: string;
+  inspectionType: InspectionType;
+  inspectionDate: string;
+  inspectionTime: string;
+  leadInspectorName: string;
+  leadInspectorRank: string;
+  leadInspectorBadge: string;
+  accompanyingOfficer?: string;
+  status: InspectionStatus;
+  complianceScore: number;
+  cellsCheckedCount: number;
+  cellsTotalCount: number;
+  infrastructureChecks: InfrastructureCheckItem[];
+  contrabandFoundSummary?: string;
+  maintenanceOrdersGenerated: string[];
+  sanitationViolationsGenerated: string[];
+  summaryFindings: string;
+  correctiveDirectives?: string;
+  signature?: string;
 }
 

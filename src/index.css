@@ -24,3 +24,45 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Print optimization for Shift Briefing Report */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+  }
+  
+  /* Hide non-printable UI */
+  .no-print,
+  nav,
+  header,
+  aside,
+  button,
+  #root > div > header,
+  #root > div > aside {
+    display: none !important;
+  }
+
+  /* Show only the briefing printable container when printing report */
+  .print-only {
+    display: block !important;
+  }
+
+  .print-page-break {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Force borders and backgrounds to print clearly */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+

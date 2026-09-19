@@ -21,6 +21,8 @@ import { PrisonMealHub } from './components/meals/PrisonMealHub';
 import { PrisonVisitorHub } from './components/visitors/PrisonVisitorHub';
 import { PrisonRoomHub } from './components/rooms/PrisonRoomHub';
 import { PrisonFleetHub } from './components/fleet/PrisonFleetHub';
+import { ShiftHandoverBrief } from './components/handover/ShiftHandoverBrief';
+import { FacilityInspectionHub } from './components/facilities/FacilityInspectionHub';
 import { AccessDeniedView } from './components/odoo/AccessDeniedView';
 import { NewAdmissionModal } from './components/modals/NewAdmissionModal';
 import { TransferModal } from './components/modals/TransferModal';
@@ -82,16 +84,27 @@ export default function App() {
   });
 
   const selectedInmate = inmates.find(i => i.id === selectedInmateId) || null;
+  const [inmateFormInitialTab, setInmateFormInitialTab] = useState<'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights'>('sentence');
 
   // Handler: Select Inmate
-  const handleSelectInmate = (inmate: Inmate) => {
+  const handleSelectInmate = (
+    inmate: Inmate, 
+    initialTab: 'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights' = 'sentence'
+  ) => {
     setSelectedInmateId(inmate.id);
+    setInmateFormInitialTab(initialTab);
     setViewMode('form');
   };
 
   // Handler: Update Inmate
   const handleUpdateInmate = (updatedInmate: Inmate) => {
     setInmates(prev => prev.map(i => (i.id === updatedInmate.id ? updatedInmate : i)));
+  };
+
+  // Handler: Bulk Update Inmates
+  const handleBulkUpdateInmates = (updatedInmates: Inmate[]) => {
+    const updateMap = new Map(updatedInmates.map(i => [i.id, i]));
+    setInmates(prev => prev.map(i => updateMap.get(i.id) || i));
   };
 
   // Handler: Add New Inmate
@@ -355,6 +368,7 @@ export default function App() {
               <InmateListView
                 inmates={filteredInmates}
                 onSelectInmate={handleSelectInmate}
+                onOpenMedicalIntake={(inm) => handleSelectInmate(inm, 'medical')}
               />
             )}
 
@@ -376,6 +390,7 @@ export default function App() {
                 onOpenEscapeModal={inm => setEscapeInmate(inm)}
                 onOpenDischargeModal={inm => setActiveApp('discharge')}
                 currentUserRole={currentUserRole}
+                initialTab={inmateFormInitialTab}
               />
             )}
 
@@ -401,6 +416,7 @@ export default function App() {
             onOpenTransferModal={inm => setTransferInmate(inm)}
             onOpenEscapeModal={inm => setEscapeInmate(inm)}
             onUpdateInmate={handleUpdateInmate}
+            onBulkUpdateInmates={handleBulkUpdateInmates}
           />
         )}
 
@@ -465,6 +481,11 @@ export default function App() {
             selectedFacilityId={selectedFacilityId}
             onSelectFacility={id => setSelectedFacilityId(id)}
             onOpenNewModal={() => setIsNewAdmissionOpen(true)}
+            onNavigateToTransfers={(facilityId) => {
+              if (facilityId) setSelectedFacilityId(facilityId);
+              setActiveApp('admissions');
+            }}
+            onOpenTransferModal={(inm) => setTransferInmate(inm)}
           />
         )}
 
@@ -479,6 +500,33 @@ export default function App() {
             }}
             onUpdateInmate={handleUpdateInmate}
           />
+        )}
+
+        {/* APP SECTION: SHIFT HANDOVER BRIEF & DIGITAL COMMAND PROTOCOL */}
+        {activeApp === 'handover' && (
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <ShiftHandoverBrief
+              language={language}
+              facilities={facilities}
+              inmates={inmates}
+              currentUserRole={currentUserRole}
+              onNavigateToRoster={() => setActiveApp('dashboard')}
+              onNavigateToDashboard={() => setActiveApp('dashboard')}
+            />
+          </div>
+        )}
+
+        {/* APP SECTION: FACILITY INSPECTIONS, INFRASTRUCTURE & MAINTENANCE */}
+        {activeApp === 'inspections' && (
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <FacilityInspectionHub
+              facilities={facilities}
+              language={language}
+              currentUserRole={currentUserRole}
+              initialFacilityId={selectedFacilityId}
+              onNavigateToRooms={() => setActiveApp('rooms')}
+            />
+          </div>
         )}
 
         {/* APP SECTION: ODOO 19 CODE BLUEPRINTS & ARCHITECTURE */}

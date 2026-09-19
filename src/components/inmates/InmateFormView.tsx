@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Inmate, PrisonFacility, SentenceRecord, RemissionLog, GratuityTransaction, UserRole, Language } from '../../types';
 import { USER_ROLES } from '../../data/rolesData';
 import { MedicalIntakeView } from './MedicalIntakeView';
@@ -43,6 +43,7 @@ interface InmateFormViewProps {
   onOpenEscapeModal: (inmate: Inmate) => void;
   onOpenDischargeModal: (inmate: Inmate) => void;
   currentUserRole?: UserRole;
+  initialTab?: 'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights';
 }
 
 export const InmateFormView: React.FC<InmateFormViewProps> = ({
@@ -54,9 +55,16 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
   onOpenTransferModal,
   onOpenEscapeModal,
   onOpenDischargeModal,
-  currentUserRole = 'superintendent'
+  currentUserRole = 'superintendent',
+  initialTab = 'sentence'
 }) => {
-  const [activeTab, setActiveTab] = useState<'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights'>('sentence');
+  const [activeTab, setActiveTab] = useState<'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights'>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, inmate.id]);
   const [newChatterNote, setNewChatterNote] = useState('');
   const [chatterType, setChatterType] = useState<'log_note' | 'activity'>('log_note');
 

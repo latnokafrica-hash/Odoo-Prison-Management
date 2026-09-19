@@ -25,7 +25,8 @@ import {
   Languages,
   Lock,
   Key,
-  Check
+  Check,
+  ClipboardCheck
 } from 'lucide-react';
 import { PrisonFacility, Inmate, Language, UserRole } from '../../types';
 import { TRANSLATIONS } from '../../data/translations';
@@ -127,6 +128,12 @@ export const OdooNavbar: React.FC<OdooNavbarProps> = ({
       desc: language === 'fr' ? 'Centres pénitentiaires nationaux' : 'Country-wide prison overview & map' 
     },
     { 
+      id: 'inspections', 
+      name: language === 'fr' ? 'Inspections Bâtiments' : 'Facility Inspections', 
+      icon: ClipboardCheck, 
+      desc: language === 'fr' ? 'Rondes cellules, GMAO & salubrité' : 'Cell block checks, maintenance & sanitation' 
+    },
+    { 
       id: 'admissions', 
       name: language === 'fr' ? 'Admissions & Évasions' : 'Admissions & Transfers', 
       icon: ArrowLeftRight, 
@@ -155,6 +162,12 @@ export const OdooNavbar: React.FC<OdooNavbarProps> = ({
       name: language === 'fr' ? 'Règles Nelson Mandela' : 'UN Mandela Rules', 
       icon: Shield, 
       desc: language === 'fr' ? 'Audits droits humains & isolement' : 'Nelson Mandela Rules & ombudsman' 
+    },
+    { 
+      id: 'handover', 
+      name: language === 'fr' ? 'Passation de Quart' : 'Shift Handover Brief', 
+      icon: ClipboardCheck, 
+      desc: language === 'fr' ? 'Signatures numériques, risques & inventaires' : 'Commander sign-offs, risks & armory audit' 
     },
     { 
       id: 'odoo_code', 

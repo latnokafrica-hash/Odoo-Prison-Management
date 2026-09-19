@@ -9,6 +9,7 @@ import {
   Lock, Shield, Key
 } from 'lucide-react';
 import { INITIAL_CELL_BLOCKS, INITIAL_MEAL_DISTRIBUTIONS, INITIAL_VISIT_SESSIONS, INITIAL_FLEET_CONVOYS } from '../../data/newModuleData';
+import { StaffDutyRoster } from './StaffDutyRoster';
 
 interface PrisonDashboardHubProps {
   inmates: Inmate[];
@@ -263,6 +264,16 @@ export const PrisonDashboardHub: React.FC<PrisonDashboardHubProps> = ({
         </div>
       </div>
 
+      {/* Staff Duty Roster: Cell Block Posts & Shift Supervision for Superintendents */}
+      <StaffDutyRoster
+        language={language}
+        facilities={facilities}
+        inmates={inmates}
+        currentUserRole={currentUserRole}
+        onNavigateToRooms={() => onNavigate('rooms')}
+        onNavigateToHandover={() => onNavigate('handover')}
+      />
+
       {/* Two Column Command Center */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Operational Highlights */}
@@ -422,6 +433,17 @@ export const PrisonDashboardHub: React.FC<PrisonDashboardHubProps> = ({
               >
                 <Building2 className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>{language === 'fr' ? 'Maintenance des Serrures & Cellules' : 'Cell Hardware & Lock Maintenance'}</span>
+              </button>
+
+              <button 
+                onClick={() => {
+                  const el = document.getElementById('staff-duty-roster-root');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="w-full p-2.5 text-left rounded-lg bg-purple-50/70 hover:bg-purple-100/80 border border-purple-200 hover:border-purple-300 transition-all flex items-center gap-3 text-xs font-medium text-purple-900"
+              >
+                <Users className="w-4 h-4 text-[#714B67] shrink-0" />
+                <span>{language === 'fr' ? 'Tableau de Garde des Sentinelles (Postes & Quarts)' : 'Staff Duty Roster & Post Assignments'}</span>
               </button>
             </div>
           </div>

@@ -5,8 +5,10 @@ import {
   VaccinationRecord, 
   AllergyRecord, 
   Language, 
-  UserRole 
+  UserRole,
+  MedicalFlagSeverity 
 } from '../../types';
+import { deriveMedicalFlag, MEDICAL_FLAG_STYLES } from '../../utils/medicalFlagUtils';
 import { 
   Stethoscope, 
   ShieldAlert, 
@@ -26,7 +28,10 @@ import {
   Thermometer, 
   AlertTriangle,
   FileCheck,
-  Pill
+  Pill,
+  Edit3,
+  Check,
+  X
 } from 'lucide-react';
 
 interface MedicalIntakeViewProps {
@@ -137,8 +142,55 @@ export const MedicalIntakeView: React.FC<MedicalIntakeViewProps> = ({
   const [notesDraft, setNotesDraft] = useState(medicalData.initialScreeningNotes);
   const [fitnessDraft, setFitnessDraft] = useState(medicalData.fitnessForDetention);
 
+  // Derived medical flag
+  const derivedFlag = deriveMedicalFlag(inmate);
+
+  // Editing medical flag and chronic conditions
+  const [isEditingFlag, setIsEditingFlag] = useState(false);
+  const [flagSeverityDraft, setFlagSeverityDraft] = useState<MedicalFlagSeverity>(
+    medicalData.medicalFlagSeverity || derivedFlag.severity
+  );
+  const [flaggedConditionDraft, setFlaggedConditionDraft] = useState(
+    medicalData.flaggedCondition || derivedFlag.conditionName
+  );
+  const [specialistSpecialtyDraft, setSpecialistSpecialtyDraft] = useState(
+    medicalData.specialistReferralSpecialty || derivedFlag.specialistSpecialty || ''
+  );
+  const [chronicConditionsDraft, setChronicConditionsDraft] = useState<string[]>(
+    medicalData.chronicConditions || []
+  );
+  const [newChronicInput, setNewChronicInput] = useState('');
+
   // Permission check: medical officers and superintendents have write permissions
   const canEditMedical = currentUserRole === 'medical_officer' || currentUserRole === 'superintendent';
+
+  // Handler: Save Medical Flag & Chronic Conditions
+  const handleSaveMedicalFlag = () => {
+    const updatedRecord: MedicalIntakeRecord = {
+      ...medicalData,
+      medicalFlagSeverity: flagSeverityDraft,
+      flaggedCondition: flaggedConditionDraft.trim(),
+      specialistReferralSpecialty: specialistSpecialtyDraft.trim() || undefined,
+      chronicConditions: chronicConditionsDraft
+    };
+    saveMedicalRecord(
+      updatedRecord,
+      `Medical Flag & Clinical Triage updated: Severity set to "${flagSeverityDraft.toUpperCase()}" (${flaggedConditionDraft}).`
+    );
+    setIsEditingFlag(false);
+  };
+
+  // Handler: Add Chronic Condition
+  const handleAddChronicCondition = () => {
+    if (!newChronicInput.trim()) return;
+    setChronicConditionsDraft(prev => [...prev, newChronicInput.trim()]);
+    setNewChronicInput('');
+  };
+
+  // Handler: Remove Chronic Condition
+  const handleRemoveChronicCondition = (index: number) => {
+    setChronicConditionsDraft(prev => prev.filter((_, i) => i !== index));
+  };
 
   // Save updated medical intake
   const saveMedicalRecord = (updatedRecord: MedicalIntakeRecord, logMsg: string) => {
@@ -444,6 +496,297 @@ export const MedicalIntakeView: React.FC<MedicalIntakeViewProps> = ({
             <span className="text-[9px] text-emerald-600 font-medium">normal</span>
           </div>
         </div>
+      </div>
+
+      {/* 2.5 Dynamic Medical Flag & Chronic Pathology Assessment Panel */}
+      <div className={`rounded-xl border p-5 shadow-2xs transition-all ${
+        derivedFlag.severity === 'critical' ? 'bg-rose-50/40 border-rose-200' :
+        derivedFlag.severity === 'needs_specialist' ? 'bg-amber-50/40 border-amber-200' :
+        derivedFlag.severity === 'chronic' ? 'bg-sky-50/40 border-sky-200' :
+        'bg-white border-slate-200'
+      }`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-3 mb-4 border-current/10">
+          <div className="flex items-center gap-2.5">
+            <span className={`p-2 rounded-lg text-white shrink-0 ${
+              derivedFlag.severity === 'critical' ? 'bg-rose-600 animate-pulse' :
+              derivedFlag.severity === 'needs_specialist' ? 'bg-amber-600' :
+              derivedFlag.severity === 'chronic' ? 'bg-sky-600' :
+              'bg-emerald-600'
+            }`}>
+              <Activity className="w-4 h-4" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-sm font-bold text-slate-900">
+                  {isFr ? 'Drapeau Médical & Pathologies Chroniques' : 'Medical Flag & Chronic Health Conditions'}
+                </h4>
+                <span className="text-[10px] bg-slate-100 text-slate-600 font-mono px-1.5 py-0.5 rounded border border-slate-200">
+                  Syncs to Inmate List Flag
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                {isFr 
+                  ? 'Niveau de gravité clinique déterminé pour les alertes de détention et le triage pénitentiaire'
+                  : 'Derived severity rating drives operational badges and medical alerts across facility rosters'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {canEditMedical && !isEditingFlag && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFlagSeverityDraft(medicalData.medicalFlagSeverity || derivedFlag.severity);
+                  setFlaggedConditionDraft(medicalData.flaggedCondition || derivedFlag.conditionName);
+                  setSpecialistSpecialtyDraft(medicalData.specialistReferralSpecialty || derivedFlag.specialistSpecialty || '');
+                  setChronicConditionsDraft(medicalData.chronicConditions || []);
+                  setIsEditingFlag(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs transition-colors"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                <span>{isFr ? 'Modifier Drapeau Médical' : 'Edit Medical Flag & Conditions'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* View Mode */}
+        {!isEditingFlag ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Primary Severity Badge Box */}
+            <div className="bg-white rounded-lg p-3.5 border border-slate-200/80 shadow-2xs space-y-2">
+              <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block">
+                Assigned Clinical Severity
+              </span>
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold border shadow-2xs ${
+                  MEDICAL_FLAG_STYLES[derivedFlag.severity].badge
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${MEDICAL_FLAG_STYLES[derivedFlag.severity].dot} ${
+                    derivedFlag.severity === 'critical' ? 'animate-ping' : ''
+                  }`}></span>
+                  <span>{derivedFlag.label}</span>
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-600 leading-snug pt-1">
+                {derivedFlag.severity === 'critical' && 'Requires immediate tertiary referral, constant monitoring, or acute inpatient care.'}
+                {derivedFlag.severity === 'needs_specialist' && 'Requires external consultant appointment or specialist diagnostic evaluation.'}
+                {derivedFlag.severity === 'chronic' && 'Requires daily maintenance pharmacotherapy and routine dispensary follow-up.'}
+                {derivedFlag.severity === 'stable' && 'Cleared for standard correctional custody without restrictions.'}
+              </div>
+            </div>
+
+            {/* Flagged Condition Details */}
+            <div className="bg-white rounded-lg p-3.5 border border-slate-200/80 shadow-2xs space-y-2">
+              <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block">
+                Flagged Health Condition
+              </span>
+              <div className="font-bold text-slate-900 text-xs">
+                {derivedFlag.conditionName}
+              </div>
+              {derivedFlag.specialistSpecialty && (
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[11px] font-semibold border border-amber-200">
+                  <Stethoscope className="w-3 h-3 text-amber-700" />
+                  <span>Specialist: {derivedFlag.specialistSpecialty}</span>
+                </div>
+              )}
+              {derivedFlag.requiresHospitalization && (
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[11px] font-bold border border-rose-200">
+                  <AlertOctagon className="w-3 h-3 text-rose-700" />
+                  <span>Inpatient Hospitalization Warranted</span>
+                </div>
+              )}
+            </div>
+
+            {/* Chronic Conditions List */}
+            <div className="bg-white rounded-lg p-3.5 border border-slate-200/80 shadow-2xs space-y-2">
+              <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider block">
+                Diagnosed Chronic Conditions ({medicalData.chronicConditions?.length || 0})
+              </span>
+              {medicalData.chronicConditions && medicalData.chronicConditions.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {medicalData.chronicConditions.map((cond, idx) => (
+                    <span 
+                      key={idx}
+                      className="px-2 py-0.5 bg-slate-100 text-slate-800 border border-slate-200 rounded text-[11px] font-medium"
+                    >
+                      {cond}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-slate-400 italic text-[11px]">
+                  No chronic illnesses recorded on intake.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Edit Mode for Medical Officer / Superintendent */
+          <div className="bg-white rounded-lg p-4 border border-slate-200 space-y-4 shadow-sm animate-in fade-in duration-150">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                Update Medical Flag & Pathology Profile
+              </h5>
+              <span className="text-[11px] text-slate-500">
+                All changes immediately propagate to the inmate registry table.
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Severity Selection */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Medical Flag Severity Level:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['critical', 'needs_specialist', 'chronic', 'stable'] as MedicalFlagSeverity[]).map((sev) => {
+                    const sevStyle = MEDICAL_FLAG_STYLES[sev];
+                    const isSelected = flagSeverityDraft === sev;
+                    return (
+                      <button
+                        key={sev}
+                        type="button"
+                        onClick={() => setFlagSeverityDraft(sev)}
+                        className={`p-2 rounded-lg border text-left flex items-center gap-2 transition-all ${
+                          isSelected 
+                            ? `${sevStyle.badge} ring-2 ring-slate-800 font-bold`
+                            : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <span className={`w-2.5 h-2.5 rounded-full ${sevStyle.dot} shrink-0`} />
+                        <span className="text-xs capitalize">{sev.replace('_', ' ')}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Primary Condition Name */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Primary Flagged Health Condition / Diagnosis:
+                </label>
+                <input
+                  type="text"
+                  value={flaggedConditionDraft}
+                  onChange={(e) => setFlaggedConditionDraft(e.target.value)}
+                  placeholder="e.g. End-Stage Renal Disease (Stage 5 CKD)"
+                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
+                />
+
+                <label className="block text-xs font-semibold text-slate-700 mt-2.5 mb-1">
+                  Specialist Referral Specialty (if applicable):
+                </label>
+                <input
+                  type="text"
+                  value={specialistSpecialtyDraft}
+                  onChange={(e) => setSpecialistSpecialtyDraft(e.target.value)}
+                  placeholder="e.g. Nephrology / Dialysis Unit, Psychiatry, Pulmonology"
+                  className="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
+                />
+              </div>
+            </div>
+
+            {/* Chronic Conditions Multi-Tag Manager */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Chronic Pathologies & ICD-10 Diagnosis Codes:
+              </label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={newChronicInput}
+                  onChange={(e) => setNewChronicInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddChronicCondition();
+                    }
+                  }}
+                  placeholder="Type condition (e.g. ICD-10 I10 Essential Hypertension) and press Enter"
+                  className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddChronicCondition}
+                  className="px-3 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold hover:bg-slate-700"
+                >
+                  Add
+                </button>
+              </div>
+
+              {/* Tag Suggestions */}
+              <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                <span className="text-[10px] text-slate-400">Quick Insert:</span>
+                {[
+                  'ICD-10 J45.40 Bronchial Asthma',
+                  'ICD-10 I10 Essential Hypertension',
+                  'ICD-10 E11 Type 2 Diabetes Mellitus',
+                  'ICD-10 N18.5 End-Stage Renal Disease',
+                  'ICD-10 K25 Peptic Ulcer Disease'
+                ].map((sugg) => (
+                  <button
+                    key={sugg}
+                    type="button"
+                    onClick={() => {
+                      if (!chronicConditionsDraft.includes(sugg)) {
+                        setChronicConditionsDraft(prev => [...prev, sugg]);
+                      }
+                    }}
+                    className="text-[10px] bg-slate-100 hover:bg-teal-50 hover:text-teal-800 hover:border-teal-300 px-2 py-0.5 rounded border border-slate-200 transition-colors"
+                  >
+                    + {sugg.split(' ')[1]} {sugg.split(' ')[2]}
+                  </button>
+                ))}
+              </div>
+
+              {/* Existing Tags */}
+              <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 bg-slate-50 rounded-lg border border-slate-200">
+                {chronicConditionsDraft.length === 0 ? (
+                  <span className="text-slate-400 text-xs italic">No chronic conditions added yet.</span>
+                ) : (
+                  chronicConditionsDraft.map((c, i) => (
+                    <span 
+                      key={i}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-800 shadow-2xs"
+                    >
+                      <span>{c}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveChronicCondition(i)}
+                        className="text-slate-400 hover:text-rose-600 ml-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setIsEditingFlag(false)}
+                className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveMedicalFlag}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold shadow-2xs transition-colors"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Save Medical Flag & Synchronize</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 3. Two-Column Focus: (A) Allergies & Medical Contraindications + (B) Vaccination History */}

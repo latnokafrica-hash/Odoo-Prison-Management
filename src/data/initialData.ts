@@ -519,6 +519,7 @@ export const INITIAL_INMATES: Inmate[] = [
         recommendations: 'CRITICAL: Must rotate out of solitary confinement within 24 hours to prevent Mandela Rule 43 violation.'
       }
     ],
+    medicalIntake: INITIAL_MEDICAL_INTAKES['inm-103'],
     emergencyContact: {
       name: 'Geoffrey Wanyonyi',
       relationship: 'Brother',
@@ -775,6 +776,7 @@ export const INITIAL_INMATES: Inmate[] = [
       }
     ],
     humanRightsAudits: [],
+    medicalIntake: INITIAL_MEDICAL_INTAKES['inm-105'],
     emergencyContact: {
       name: 'Mary Wanjiku',
       relationship: 'Mother',
@@ -848,6 +850,7 @@ export const INITIAL_INMATES: Inmate[] = [
       }
     ],
     humanRightsAudits: [],
+    medicalIntake: INITIAL_MEDICAL_INTAKES['inm-106'],
     emergencyContact: {
       name: 'Amina Abdalla',
       relationship: 'Spouse',
@@ -928,6 +931,7 @@ export const INITIAL_INMATES: Inmate[] = [
       }
     ],
     humanRightsAudits: [],
+    medicalIntake: INITIAL_MEDICAL_INTAKES['inm-107'],
     emergencyContact: {
       name: 'Samuel Ndung\'u',
       relationship: 'Father',
@@ -999,6 +1003,7 @@ export const INITIAL_INMATES: Inmate[] = [
     ],
     transfers: [],
     humanRightsAudits: [],
+    medicalIntake: INITIAL_MEDICAL_INTAKES['inm-108'],
     emergencyContact: {
       name: 'Priscilla Kiptoo',
       relationship: 'Mother',

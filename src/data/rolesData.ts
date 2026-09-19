@@ -29,6 +29,8 @@ export const USER_ROLES: Record<UserRole, UserRoleProfile> = {
       'rehabilitation',
       'discharge',
       'human_rights',
+      'handover',
+      'inspections',
       'odoo_code'
     ],
     sensitiveRestrictedModules: [],
@@ -59,6 +61,8 @@ export const USER_ROLES: Record<UserRole, UserRoleProfile> = {
       'fleet',
       'meals',
       'visitors',
+      'handover',
+      'inspections',
       'human_rights'
     ],
     sensitiveRestrictedModules: [
@@ -94,7 +98,8 @@ export const USER_ROLES: Record<UserRole, UserRoleProfile> = {
       'meals',
       'human_rights',
       'visitors',
-      'rooms'
+      'rooms',
+      'inspections'
     ],
     sensitiveRestrictedModules: [
       'discharge',
@@ -137,6 +142,7 @@ export const USER_ROLES: Record<UserRole, UserRoleProfile> = {
       'discharge',
       'fleet',
       'rooms',
+      'inspections',
       'facilities',
       'meals',
       'odoo_code'
