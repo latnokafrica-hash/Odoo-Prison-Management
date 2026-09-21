@@ -32,6 +32,7 @@ import { PrisonFacility, Inmate, Language, UserRole } from '../../types';
 import { TRANSLATIONS } from '../../data/translations';
 import { USER_ROLES } from '../../data/rolesData';
 import { AccessControlMatrixModal } from './AccessControlMatrixModal';
+import { MyTasksNotificationBell } from './MyTasksNotificationBell';
 
 interface OdooNavbarProps {
   currentModule: string;
@@ -45,6 +46,7 @@ interface OdooNavbarProps {
   onToggleLanguage: (lang: Language) => void;
   currentUserRole: UserRole;
   onSelectRole: (role: UserRole) => void;
+  onSelectInmate?: (inmate: Inmate, initialTab?: any) => void;
 }
 
 export const OdooNavbar: React.FC<OdooNavbarProps> = ({
@@ -59,6 +61,7 @@ export const OdooNavbar: React.FC<OdooNavbarProps> = ({
   onToggleLanguage,
   currentUserRole,
   onSelectRole,
+  onSelectInmate,
 }) => {
   const [isAppSwitcherOpen, setIsAppSwitcherOpen] = useState(false);
   const [isFacilityDropdownOpen, setIsFacilityDropdownOpen] = useState(false);
@@ -426,14 +429,15 @@ export const OdooNavbar: React.FC<OdooNavbarProps> = ({
             </button>
           )}
 
-          {/* Notifications Icon */}
-          <button 
-            className="p-1.5 rounded hover:bg-white/10 text-white/80 hover:text-white relative"
-            title="System Audit & Activity Notifications"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-emerald-400 rounded-full" />
-          </button>
+          {/* Persistent 'My Tasks' Notification Bell */}
+          <MyTasksNotificationBell
+            inmates={inmates}
+            facilities={facilities}
+            currentUserRole={currentUserRole}
+            language={language}
+            onSelectModule={onSelectModule}
+            onSelectInmate={onSelectInmate}
+          />
 
           {/* Language Switcher Button (EN / FR) */}
           <div className="flex items-center bg-black/25 rounded-md p-0.5 border border-white/10 text-xs">

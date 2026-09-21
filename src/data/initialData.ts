@@ -13,7 +13,24 @@ export const INITIAL_FACILITIES: PrisonFacility[] = [
     currentInmates: 1680, // Overcrowded
     wardenName: 'Senior Supt. Josephat Mwangi',
     securityRating: 'Level 5 Supermax',
-    coordinates: { x: 55, y: 48 }
+    coordinates: { x: 55, y: 48 },
+    activeOfficers: 112,
+    recommendedOfficers: 280, // International standard 6:1 custody baseline (Current: 15.0:1)
+    ongoingSecurityIncidents: [
+      {
+        id: 'inc-live-kms-01',
+        type: 'escape_attempt',
+        title: 'Sector 4 Razor Fence Intrusion & Block C Lockdown',
+        severity: 'CRITICAL',
+        reportedTime: '18 mins ago (05:15 HRS)',
+        locationZone: 'North Perimeter Sector 4 & Block C Isolation',
+        status: 'active_lockdown',
+        description: 'Two inmates attempted scaling inner concertina wire using insulated hooks during morning generator switch; perimeter guard fired warning shot, red lockdown engaged.',
+        tacticalUnitsDeployed: ['K9 Tactical Dog Unit (Alpha)', 'Sentry Watchtower 1 & 2 QRF Patrol', 'Station Armory Detail'],
+        inmatesInvolvedCount: 3,
+        containmentEtaMinutes: 12
+      }
+    ]
   },
   {
     id: 'FAC-02',
@@ -26,7 +43,10 @@ export const INITIAL_FACILITIES: PrisonFacility[] = [
     currentInmates: 492,
     wardenName: 'Supt. Grace Chebet',
     securityRating: 'Level 3 Medium/Close',
-    coordinates: { x: 52, y: 52 }
+    coordinates: { x: 52, y: 52 },
+    activeOfficers: 98,
+    recommendedOfficers: 100, // 5.0:1 Ratio (Normal compliance)
+    ongoingSecurityIncidents: []
   },
   {
     id: 'FAC-03',
@@ -39,7 +59,10 @@ export const INITIAL_FACILITIES: PrisonFacility[] = [
     currentInmates: 1140,
     wardenName: 'Asst. Comm. Ali Hassan',
     securityRating: 'Level 3 Medium',
-    coordinates: { x: 80, y: 78 }
+    coordinates: { x: 80, y: 78 },
+    activeOfficers: 125,
+    recommendedOfficers: 190, // 9.1:1 Ratio (Warning threshold)
+    ongoingSecurityIncidents: []
   },
   {
     id: 'FAC-04',
@@ -52,7 +75,24 @@ export const INITIAL_FACILITIES: PrisonFacility[] = [
     currentInmates: 890,
     wardenName: 'Supt. Duncan Kariuki',
     securityRating: 'Level 4 High Security Remand',
-    coordinates: { x: 54, y: 38 }
+    coordinates: { x: 54, y: 38 },
+    activeOfficers: 68,
+    recommendedOfficers: 148, // 13.1:1 Ratio (Severe Staffing Deficit: -80 officers)
+    ongoingSecurityIncidents: [
+      {
+        id: 'inc-live-kng-01',
+        type: 'disturbance',
+        title: 'Remand Dormitory B Weapon Contraband Flashpoint',
+        severity: 'HIGH',
+        reportedTime: '45 mins ago (04:48 HRS)',
+        locationZone: 'Block B Remand Common Holding',
+        status: 'tactical_response',
+        description: 'Hostile cell shakedown refusal following discovery of smuggled communications and improvised weapons; tactical shield squad staged at entry gate.',
+        tacticalUnitsDeployed: ['Central Remand Tactical Shield Detail', 'Emergency Riot Extraction Team'],
+        inmatesInvolvedCount: 16,
+        containmentEtaMinutes: 20
+      }
+    ]
   },
   {
     id: 'FAC-05',
@@ -65,7 +105,10 @@ export const INITIAL_FACILITIES: PrisonFacility[] = [
     currentInmates: 385,
     wardenName: 'Chief Inspector David Omondi',
     securityRating: 'Level 1 Open / Pre-Release Trust',
-    coordinates: { x: 44, y: 45 }
+    coordinates: { x: 44, y: 45 },
+    activeOfficers: 82,
+    recommendedOfficers: 80, // 4.7:1 Ratio (Optimal trust compliance)
+    ongoingSecurityIncidents: []
   }
 ];
 
@@ -194,13 +237,25 @@ export const INITIAL_INMATES: Inmate[] = [
       {
         id: 'prg-01',
         programId: 'VOC-CARPENTRY',
-        programName: 'Grade II Joinery & Timber Craftsmanship',
+        programName: 'Grade II Joinery & Architectural Timber Craftsmanship',
         category: 'vocational',
         enrollmentDate: '2024-04-01',
         progressPercent: 78,
         status: 'in_progress',
         dailyEarningRate: 2.50,
-        instructor: 'Master Craftsman S. Wekesa'
+        instructor: 'Master Craftsman S. Wekesa',
+        certifyingBody: 'National Industrial Training Authority (NITA)',
+        attendanceHoursCompleted: 375,
+        totalCourseHours: 480,
+        modulesCompleted: 4,
+        totalModules: 6,
+        skillsAcquired: [
+          'Mortise and tenon jointing',
+          'Timber seasoning',
+          'Machine lathe spindle turning',
+          'Institutional furniture fabrication'
+        ],
+        instructorRemarks: 'Demonstrates strong technical precision in courtroom bench joinery. On track for NITA Grade II board testing.'
       }
     ],
     courtCases: [
@@ -464,7 +519,26 @@ export const INITIAL_INMATES: Inmate[] = [
     propertyItems: [],
     gratuityBalance: 12.00,
     gratuityTransactions: [],
-    programs: [],
+    programs: [
+      {
+        id: 'prg-103-1',
+        programId: 'VOC-MASONRY',
+        programName: 'Interlocking Block Engineering & Architectural Masonry',
+        category: 'vocational',
+        enrollmentDate: '2025-01-15',
+        progressPercent: 35,
+        status: 'in_progress',
+        dailyEarningRate: 2.80,
+        instructor: 'Chief Mason T. Odhiambo',
+        certifyingBody: 'National Construction Authority (NCA)',
+        attendanceHoursCompleted: 140,
+        totalCourseHours: 400,
+        modulesCompleted: 2,
+        totalModules: 5,
+        skillsAcquired: ['ISSB hydraulic press calibration', 'Soil-cement ratio testing'],
+        instructorRemarks: 'Good mechanical aptitude in block manufacturing press operations.'
+      }
+    ],
     courtCases: [],
     transfers: [
       {
@@ -630,13 +704,29 @@ export const INITIAL_INMATES: Inmate[] = [
       {
         id: 'prg-104-1',
         programId: 'VOC-TEXTILE',
-        programName: 'Industrial Garment Design & Export Quality Control',
+        programName: 'Industrial Garment Design & High-Volume Tailoring',
         category: 'vocational',
         enrollmentDate: '2021-06-01',
         progressPercent: 100,
         status: 'completed',
         dailyEarningRate: 3.50,
-        instructor: 'Senior Instructor M. Nzioka'
+        instructor: 'Senior Instructor M. Nzioka',
+        completedDate: '2022-03-15',
+        certificateNumber: 'CERT-EPZA-2022-00412-LWC',
+        certificateIssuedAt: '2022-03-18',
+        certifyingBody: 'Export Processing Zones Authority & NITA',
+        gradeOrScore: 'Distinction (Artisan Grade II)',
+        attendanceHoursCompleted: 720,
+        totalCourseHours: 720,
+        modulesCompleted: 8,
+        totalModules: 8,
+        skillsAcquired: [
+          'Uniform mass production',
+          'Industrial single-needle & overlock machine operation',
+          'Computerized embroidery programming',
+          'Export apparel quality inspection'
+        ],
+        instructorRemarks: 'Exceptional craftsmanship. Appointed Senior Peer Trainer in Langata Women industrial sewing workshop.'
       }
     ],
     courtCases: [],
@@ -752,7 +842,19 @@ export const INITIAL_INMATES: Inmate[] = [
         progressPercent: 90,
         status: 'in_progress',
         dailyEarningRate: 3.00,
-        instructor: 'Officer J. Wachira (Agricultural Extension)'
+        instructor: 'Officer J. Wachira (Agricultural Extension)',
+        certifyingBody: 'Ministry of Agriculture & Livestock Research',
+        attendanceHoursCompleted: 288,
+        totalCourseHours: 320,
+        modulesCompleted: 4,
+        totalModules: 5,
+        skillsAcquired: [
+          'Greenhouse fertigation',
+          'Friesian dairy cattle herd hygiene',
+          'Silage preservation',
+          'Automated solar drip irrigation'
+        ],
+        instructorRemarks: 'Leading dairy cow artificial insemination record-keeping team at Naivasha Farm.'
       }
     ],
     courtCases: [],
@@ -829,7 +931,30 @@ export const INITIAL_INMATES: Inmate[] = [
     propertyItems: [],
     gratuityBalance: 88.00,
     gratuityTransactions: [],
-    programs: [],
+    programs: [
+      {
+        id: 'prg-106-1',
+        programId: 'EDU-LIT-BASIC',
+        programName: 'Adult Basic Literacy, Numeracy & Civic Empowerment',
+        category: 'education',
+        enrollmentDate: '2025-06-10',
+        progressPercent: 60,
+        status: 'in_progress',
+        dailyEarningRate: 1.50,
+        instructor: 'Education Officer Patricia Koech',
+        certifyingBody: 'Ministry of Education - Directorate of Adult & Continuing Education',
+        attendanceHoursCompleted: 180,
+        totalCourseHours: 300,
+        modulesCompleted: 3,
+        totalModules: 5,
+        skillsAcquired: [
+          'Functional reading comprehension',
+          'Administrative forms completion',
+          'Everyday mental arithmetic'
+        ],
+        instructorRemarks: 'Making rapid progress in functional reading and arithmetic ledger keeping.'
+      }
+    ],
     courtCases: [],
     transfers: [
       {

@@ -10,8 +10,14 @@ import {
   Printer, 
   Fingerprint, 
   Lock, 
-  HeartHandshake 
+  HeartHandshake,
+  FileDown,
+  Eye,
+  X
 } from 'lucide-react';
+import { PropertyVault } from '../property/PropertyVault';
+import { PropertyReportModal } from '../property/PropertyReportModal';
+import { downloadPropertyDischargePdf } from '../property/propertyPdfGenerator';
 
 interface DischargeExitHubProps {
   inmates: Inmate[];
@@ -35,7 +41,28 @@ export const DischargeExitHub: React.FC<DischargeExitHubProps> = ({
     dischargeCandidateInmates.find(i => i.dischargeRecord) || dischargeCandidateInmates[0] || null
   );
 
+  const [isPropertyVaultModalOpen, setIsPropertyVaultModalOpen] = useState(false);
+  const [isPropertyPdfModalOpen, setIsPropertyPdfModalOpen] = useState(false);
+  const [isExportingDirectPdf, setIsExportingDirectPdf] = useState(false);
+
   const discharge = selectedDischargeInmate?.dischargeRecord;
+
+  // Direct export PDF handler
+  const handleExportPropertyPdf = async () => {
+    if (!selectedDischargeInmate) return;
+    try {
+      setIsExportingDirectPdf(true);
+      await downloadPropertyDischargePdf(selectedDischargeInmate);
+      // Auto complete property handover checklist if not yet checked
+      if (selectedDischargeInmate.dischargeRecord && !selectedDischargeInmate.dischargeRecord.propertyHandoverCompleted) {
+        handleToggleChecklistStep('propertyHandoverCompleted');
+      }
+    } catch (err) {
+      console.error('Failed to export property discharge PDF:', err);
+    } finally {
+      setIsExportingDirectPdf(false);
+    }
+  };
 
   // Toggle checklist step
   const handleToggleChecklistStep = (key: keyof NonNullable<Inmate['dischargeRecord']>) => {
@@ -238,26 +265,72 @@ export const DischargeExitHub: React.FC<DischargeExitHubProps> = ({
 
                   {/* Step 3: Sealed Property Handover */}
                   <div 
-                    onClick={() => discharge && handleToggleChecklistStep('propertyHandoverCompleted')}
-                    className={`p-3 rounded-lg border flex items-center justify-between cursor-pointer transition-colors ${
+                    className={`p-3 rounded-lg border transition-colors ${
                       discharge?.propertyHandoverCompleted ? 'bg-emerald-50/50 border-emerald-300' : 'bg-slate-50 border-slate-200 hover:bg-white'
                     }`}
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className={`p-2 rounded-md ${discharge?.propertyHandoverCompleted ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                        <Lock className="w-4 h-4" />
+                    <div className="flex items-center justify-between">
+                      <div 
+                        onClick={() => discharge && handleToggleChecklistStep('propertyHandoverCompleted')}
+                        className="flex items-center space-x-3 cursor-pointer flex-1"
+                      >
+                        <div className={`p-2 rounded-md ${discharge?.propertyHandoverCompleted ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-xs text-slate-900">3. Sealed Property Vault Handover & Counter-Signature</div>
+                          <div className="text-[11px] text-slate-500">
+                            Return of personal property ({selectedDischargeInmate.propertyItems.length} items logged in vault) with verified unbroken security seal.
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-bold text-xs text-slate-900">3. Sealed Property Vault Handover & Counter-Signature</div>
-                        <div className="text-[11px] text-slate-500">Return of personal property ({selectedDischargeInmate.propertyItems.length} items logged in vault) with verified unbroken security seal.</div>
+                      <input 
+                        type="checkbox" 
+                        checked={discharge?.propertyHandoverCompleted || false} 
+                        onChange={() => discharge && handleToggleChecklistStep('propertyHandoverCompleted')} 
+                        className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer ml-3"
+                      />
+                    </div>
+
+                    {/* Action Bar for Property Vault & PDF Export */}
+                    <div className="mt-2.5 pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        <span>Vault Bay: <strong>LOCKER-B04</strong></span>
+                        <span className="text-slate-300">•</span>
+                        <span>{selectedDischargeInmate.propertyItems.length} Sealed Bags</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsPropertyVaultModalOpen(true)}
+                          className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded border border-slate-300 shadow-2xs flex items-center gap-1 text-[11px] transition-colors"
+                        >
+                          <Eye className="w-3 h-3 text-slate-500" />
+                          <span>Inspect Vault</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsPropertyPdfModalOpen(true)}
+                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded shadow-2xs flex items-center gap-1 text-[11px] transition-colors"
+                        >
+                          <Printer className="w-3 h-3 text-slate-300" />
+                          <span>Preview Sign-Off</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleExportPropertyPdf}
+                          disabled={isExportingDirectPdf}
+                          className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded shadow-2xs flex items-center gap-1 text-[11px] transition-colors disabled:opacity-50"
+                        >
+                          <FileDown className="w-3 h-3" />
+                          <span>{isExportingDirectPdf ? 'Generating...' : 'Export PDF'}</span>
+                        </button>
                       </div>
                     </div>
-                    <input 
-                      type="checkbox" 
-                      checked={discharge?.propertyHandoverCompleted || false} 
-                      onChange={() => {}} 
-                      className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
-                    />
                   </div>
 
                   {/* Step 4: Gratuity Disbursement */}
@@ -312,12 +385,21 @@ export const DischargeExitHub: React.FC<DischargeExitHubProps> = ({
 
               {/* Release Certificate Printout Preview */}
               <div className="bg-slate-50 border border-slate-300 rounded-lg p-4 font-mono text-xs space-y-2">
-                <div className="flex justify-between items-center border-b border-slate-300 pb-2">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-300 pb-2">
                   <span className="font-bold text-slate-800 uppercase">OFFICIAL PRISONS ACT DISCHARGE CERTIFICATE</span>
-                  <button className="flex items-center gap-1 text-[11px] font-sans font-semibold text-[#714B67] hover:underline">
-                    <Printer className="w-3.5 h-3.5" />
-                    Print Gate Clearance
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setIsPropertyPdfModalOpen(true)}
+                      className="flex items-center gap-1 text-[11px] font-sans font-semibold text-amber-800 hover:text-amber-900 hover:underline"
+                    >
+                      <FileDown className="w-3.5 h-3.5" />
+                      Export Property PDF (Form NPS-PR-7B)
+                    </button>
+                    <button className="flex items-center gap-1 text-[11px] font-sans font-semibold text-[#714B67] hover:underline">
+                      <Printer className="w-3.5 h-3.5" />
+                      Print Gate Clearance
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                   <div>INMATE: {selectedDischargeInmate.firstName} {selectedDischargeInmate.lastName}</div>
@@ -336,6 +418,59 @@ export const DischargeExitHub: React.FC<DischargeExitHubProps> = ({
           )}
         </div>
       </div>
+
+      {/* Property Report Printable Sign-Off Modal */}
+      {selectedDischargeInmate && (
+        <PropertyReportModal
+          inmate={selectedDischargeInmate}
+          isOpen={isPropertyPdfModalOpen}
+          onClose={() => setIsPropertyPdfModalOpen(false)}
+          onConfirmSignOff={() => {
+            if (selectedDischargeInmate.dischargeRecord && !selectedDischargeInmate.dischargeRecord.propertyHandoverCompleted) {
+              handleToggleChecklistStep('propertyHandoverCompleted');
+            }
+          }}
+        />
+      )}
+
+      {/* Full Property Vault Inspection Modal */}
+      {isPropertyVaultModalOpen && selectedDischargeInmate && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-amber-500 text-slate-950 rounded-md">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Property Vault Inspection & Discharge Sign-Off</h3>
+                  <p className="text-xs text-slate-400">
+                    Inmate: {selectedDischargeInmate.firstName} {selectedDischargeInmate.lastName} ({selectedDischargeInmate.bookingNumber}) — {selectedDischargeInmate.facilityName}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPropertyVaultModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 overflow-y-auto bg-slate-50">
+              <PropertyVault
+                inmate={selectedDischargeInmate}
+                onUpdateInmate={onUpdateInmate}
+                showDischargeActions={true}
+                onDischargeVerified={() => {
+                  if (selectedDischargeInmate.dischargeRecord && !selectedDischargeInmate.dischargeRecord.propertyHandoverCompleted) {
+                    handleToggleChecklistStep('propertyHandoverCompleted');
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

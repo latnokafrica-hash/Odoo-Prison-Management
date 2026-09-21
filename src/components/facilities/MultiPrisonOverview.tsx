@@ -1,5 +1,11 @@
-import React, { useState } from 'react';
-import { PrisonFacility, Inmate } from '../../types';
+import React, { useState, useMemo } from 'react';
+import { PrisonFacility, Inmate, OngoingSecurityIncident } from '../../types';
+import { FacilityHotspotView } from './FacilityHotspotView';
+import { CapacityProjectionChart } from './CapacityProjectionChart';
+import { ComparativeGrowthChart } from './ComparativeGrowthChart';
+import { CriticalAlertSitrepModal } from './CriticalAlertSitrepModal';
+import { HighRiskFacilityReportModal } from './HighRiskFacilityReportModal';
+import { FacilityInspectionMaintenanceSidebar } from './FacilityInspectionMaintenanceSidebar';
 import { 
   Building2, 
   Users, 
@@ -18,7 +24,19 @@ import {
   Filter,
   Info,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Flame,
+  Map as MapIcon,
+  Siren,
+  Radio,
+  Lock,
+  Zap,
+  BadgeAlert,
+  Printer,
+  FileText,
+  CalendarDays,
+  Wrench,
+  ClipboardCheck
 } from 'lucide-react';
 import {
   PieChart,
@@ -60,17 +78,79 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
   onNavigateToTransfers,
   onOpenTransferModal
 }) => {
-  const [capacityFilter, setCapacityFilter] = useState<'all' | 'exceeding90' | 'overcrowded' | 'normal'>('all');
+  const [activeView, setActiveView] = useState<'capacity' | 'growth' | 'hotspot'>('capacity');
+  const [capacityFilter, setCapacityFilter] = useState<'all' | 'criticalAlert' | 'exceeding90' | 'overcrowded' | 'normal'>('all');
+  const [selectedSitrepFacility, setSelectedSitrepFacility] = useState<PrisonFacility | null>(null);
+  const [securityHeatmapEnabled, setSecurityHeatmapEnabled] = useState<boolean>(true);
+  const [securityHeatmapMetric, setSecurityHeatmapMetric] = useState<'composite' | 'density' | 'ratio' | 'incidents'>('composite');
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [reportInitialFilter, setReportInitialFilter] = useState<'all_high_risk' | 'critical_alerts' | 'overcrowded' | 'all'>('all_high_risk');
+  const [isCalendarSidebarOpen, setIsCalendarSidebarOpen] = useState<boolean>(false);
+  const [isCalendarSidebarDocked, setIsCalendarSidebarDocked] = useState<boolean>(false);
 
   const totalCapacity = facilities.reduce((acc, f) => acc + f.capacity, 0);
   const totalCurrentInmates = facilities.reduce((acc, f) => acc + f.currentInmates, 0);
   const nationalOccupancy = Math.round((totalCurrentInmates / totalCapacity) * 100);
+
+  // Critical Alert Evaluation Map: Inmate-to-Officer ratios and Ongoing Security Incidents
+  const facilityAlertMap = useMemo(() => {
+    const map = new Map<string, {
+      activeOfficers: number;
+      recommendedOfficers: number;
+      ratio: number;
+      isHighRatio: boolean;
+      officerDeficit: number;
+      ongoingIncidents: OngoingSecurityIncident[];
+      hasOngoingIncidents: boolean;
+      isCriticalAlert: boolean;
+      criticalAlertReasons: string[];
+    }>();
+
+    facilities.forEach(fac => {
+      const activeOfficers = fac.activeOfficers || Math.max(1, Math.round(fac.capacity / 6));
+      const recommendedOfficers = fac.recommendedOfficers || Math.ceil(fac.currentInmates / 6);
+      const ratio = Number((fac.currentInmates / activeOfficers).toFixed(1));
+      const officerDeficit = Math.max(0, recommendedOfficers - activeOfficers);
+      // High ratio threshold is >= 10:1 (international standard is 4:1 to 6:1; statutory warning > 8:1)
+      const isHighRatio = ratio >= 10.0;
+      const ongoingIncidents = fac.ongoingSecurityIncidents || [];
+      const hasOngoingIncidents = ongoingIncidents.length > 0;
+      const isCriticalAlert = isHighRatio || hasOngoingIncidents;
+
+      const criticalAlertReasons: string[] = [];
+      if (isHighRatio) {
+        criticalAlertReasons.push(`High Inmate-to-Officer Ratio: ${ratio}:1 (Deficit: -${officerDeficit} Officers)`);
+      }
+      if (hasOngoingIncidents) {
+        criticalAlertReasons.push(`${ongoingIncidents.length} Ongoing Security Incident(s)`);
+      }
+
+      map.set(fac.id, {
+        activeOfficers,
+        recommendedOfficers,
+        ratio,
+        isHighRatio,
+        officerDeficit,
+        ongoingIncidents,
+        hasOngoingIncidents,
+        isCriticalAlert,
+        criticalAlertReasons
+      });
+    });
+
+    return map;
+  }, [facilities]);
+
+  const criticalAlertFacilities = facilities.filter(f => facilityAlertMap.get(f.id)?.isCriticalAlert);
+  const criticalAlertCount = criticalAlertFacilities.length;
 
   // Prepare chart data: each facility's real-time capacity usage percentage
   const chartData = facilities.map((fac, idx) => {
     const occupancyRate = Math.round((fac.currentInmates / fac.capacity) * 100);
     const isOvercrowded = fac.currentInmates > fac.capacity;
     const isExceeding90 = occupancyRate >= 90;
+    const alertData = facilityAlertMap.get(fac.id);
+
     return {
       id: fac.id,
       name: fac.name,
@@ -84,6 +164,10 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
       type: fac.type,
       isOvercrowded,
       isExceeding90,
+      isCriticalAlert: alertData?.isCriticalAlert ?? false,
+      ratio: alertData?.ratio ?? 6.0,
+      activeOfficers: alertData?.activeOfficers ?? 100,
+      hasOngoingIncidents: alertData?.hasOngoingIncidents ?? false,
       wardenName: fac.wardenName,
       color: FACILITY_COLORS[idx % FACILITY_COLORS.length]
     };
@@ -98,6 +182,8 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
 
   // Filter facilities for grid display based on active filter
   const displayedFacilities = facilities.filter(fac => {
+    const alertData = facilityAlertMap.get(fac.id);
+    if (capacityFilter === 'criticalAlert') return alertData?.isCriticalAlert;
     const rate = Math.round((fac.currentInmates / fac.capacity) * 100);
     if (capacityFilter === 'exceeding90') return rate >= 90;
     if (capacityFilter === 'overcrowded') return rate > 100;
@@ -121,12 +207,37 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
             National Directorate of Correctional Services - Multi-Prison ERP
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Centralized capacity surveillance, overcrowding alerts, and rapid inter-prison transfer re-allocation engine.
+            Centralized capacity surveillance, operational critical alert overlays, and rapid inter-prison transfer re-allocation engine.
           </p>
         </div>
 
-        {/* National Aggregates */}
-        <div className="flex items-center space-x-3 text-right">
+        {/* National Aggregates with Critical Alert Card */}
+        <div className="flex items-center space-x-3 text-right flex-wrap sm:flex-nowrap">
+          {/* Critical Alerts Metric Badge */}
+          <button
+            onClick={() => setCapacityFilter(capacityFilter === 'criticalAlert' ? 'all' : 'criticalAlert')}
+            className={`border p-2.5 rounded-lg text-right transition-all cursor-pointer ${
+              capacityFilter === 'criticalAlert'
+                ? 'bg-rose-100 border-rose-400 ring-2 ring-rose-400/40 shadow-xs'
+                : criticalAlertCount > 0
+                ? 'bg-rose-50/80 hover:bg-rose-100/90 border-rose-300'
+                : 'bg-slate-50 border-slate-200'
+            }`}
+            title="Toggle Critical Alert facilities (High ratio or active incident)"
+          >
+            <div className="text-[10px] uppercase font-bold text-rose-800 flex items-center justify-end gap-1">
+              <Siren className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+              <span>Critical Alerts</span>
+            </div>
+            <div className="text-xl font-mono font-extrabold text-rose-600 flex items-center justify-end gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping" />
+              {criticalAlertCount} {criticalAlertCount === 1 ? 'Facility' : 'Facilities'}
+            </div>
+            <div className="text-[9px] text-rose-700 font-medium">
+              High Ratio / Incidents
+            </div>
+          </button>
+
           <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-lg">
             <div className="text-[10px] uppercase font-bold text-slate-500">National Occupancy</div>
             <div className={`text-xl font-mono font-extrabold ${nationalOccupancy > 100 ? 'text-rose-600' : nationalOccupancy >= 90 ? 'text-amber-600' : 'text-slate-900'}`}>
@@ -139,10 +250,317 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
               {totalCurrentInmates} / {totalCapacity}
             </div>
           </div>
+
+          {/* Block Safety & Preventative Maintenance Calendar Banner Quick-Launch */}
+          <button
+            onClick={() => setIsCalendarSidebarOpen(true)}
+            className="border border-purple-200 bg-purple-50 hover:bg-purple-100 text-[#714B67] p-2.5 rounded-lg text-right transition-all cursor-pointer shadow-2xs group shrink-0"
+            title="Open Calendar-View Sidebar to track upcoming safety inspections and preventative maintenance for specific facility blocks"
+          >
+            <div className="text-[10px] uppercase font-bold text-[#714B67] flex items-center justify-end gap-1">
+              <CalendarDays className="w-3.5 h-3.5 text-[#714B67] group-hover:scale-110 transition-transform" />
+              <span>Block Maintenance</span>
+            </div>
+            <div className="text-sm font-mono font-extrabold text-[#714B67] flex items-center justify-end gap-1.5 mt-0.5">
+              <span>Safety Cal</span>
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded font-bold bg-[#714B67] text-white">
+                VIEW
+              </span>
+            </div>
+            <div className="text-[9px] text-purple-700 font-medium">
+              Upcoming Inspections & PM
+            </div>
+          </button>
+
+          {/* High-Risk Facilities Printable Report Tool Button */}
+          <button
+            onClick={() => {
+              setReportInitialFilter('all_high_risk');
+              setIsReportModalOpen(true);
+            }}
+            className="border border-slate-700 bg-slate-900 hover:bg-slate-800 text-white p-2.5 rounded-lg text-right transition-all cursor-pointer shadow-xs hover:shadow-md group shrink-0"
+            title="Open printable PDF-ready summary report of high-risk facilities, incident counts and capacity usage"
+          >
+            <div className="text-[10px] uppercase font-bold text-amber-400 flex items-center justify-end gap-1">
+              <Printer className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+              <span>Reporting Tool</span>
+            </div>
+            <div className="text-sm font-mono font-extrabold text-white flex items-center justify-end gap-1.5 mt-0.5">
+              <span>PDF Report</span>
+              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded font-bold bg-amber-400 text-slate-950">
+                AUDIT
+              </span>
+            </div>
+            <div className="text-[9px] text-slate-400 font-medium">
+              High-Risk Facilities Summary
+            </div>
+          </button>
         </div>
       </div>
 
-      {/* URGENT CAPACITY ADVISORY BANNER FOR FACILITIES EXCEEDING 90% */}
+      {/* Top View Mode Switcher & Security Heatmap Toggle */}
+      <div className="bg-white border border-slate-200 rounded-xl p-2.5 shadow-2xs flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setActiveView('capacity')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+              activeView === 'capacity'
+                ? 'bg-[#714B67] text-white shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            <PieChartIcon className="w-4 h-4" />
+            <span>National Capacity & Transfers</span>
+          </button>
+
+          <button
+            onClick={() => setActiveView('growth')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+              activeView === 'growth'
+                ? 'bg-[#714B67] text-white shadow-xs'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200'
+            }`}
+          >
+            <TrendingUp className={`w-4 h-4 ${activeView === 'growth' ? 'text-white' : 'text-emerald-700'}`} />
+            <span>Comparative Growth (12M)</span>
+            <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
+              activeView === 'growth' ? 'bg-white text-[#714B67]' : 'bg-emerald-700 text-white'
+            }`}>
+              12-MO
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveView('hotspot')}
+            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+              activeView === 'hotspot'
+                ? 'bg-amber-500 text-slate-950 shadow-xs'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200'
+            }`}
+          >
+            <Flame className={`w-4 h-4 ${activeView === 'hotspot' ? 'text-slate-950' : 'text-amber-600'}`} />
+            <span>Facility Hotspots & Risk Map</span>
+            <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
+              activeView === 'hotspot' ? 'bg-slate-900 text-amber-400' : 'bg-rose-600 text-white animate-pulse'
+            }`}>
+              HOTSPOT
+            </span>
+          </button>
+
+          {/* Security Heatmap Overlay Toggle */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg p-1">
+            <button
+              onClick={() => {
+                const next = !securityHeatmapEnabled;
+                setSecurityHeatmapEnabled(next);
+                if (next && activeView !== 'hotspot') {
+                  setActiveView('hotspot');
+                }
+              }}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-2 ${
+                securityHeatmapEnabled
+                  ? 'bg-gradient-to-r from-emerald-600 via-amber-600 to-rose-600 text-white shadow-xs ring-1 ring-rose-400/50'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'
+              }`}
+              title="Toggle Security Heatmap: visualizes facility density, officer-to-inmate ratios, and incident frequency as green-to-red gradients on the facility map"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Security Heatmap:</span>
+              <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                securityHeatmapEnabled ? 'bg-black/40 text-amber-300' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {securityHeatmapEnabled ? 'ENABLED' : 'DISABLED'}
+              </span>
+              <span className={`w-2 h-2 rounded-full ${securityHeatmapEnabled ? 'bg-emerald-300 animate-pulse' : 'bg-slate-400'}`} />
+            </button>
+
+            {securityHeatmapEnabled && (
+              <div className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500" title="Low Density / Safe Ratio" />
+                <span className="w-2.5 h-2.5 rounded-xs bg-amber-500" title="Moderate Load / Strained" />
+                <span className="w-2.5 h-2.5 rounded-xs bg-rose-600" title="Critical Overcrowding / High Ratio" />
+                <span className="text-[9px] text-slate-500 ml-1 font-mono">Green→Red</span>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Nav: 12-Month Growth Chart */}
+          <button
+            onClick={() => {
+              if (activeView !== 'capacity') setActiveView('capacity');
+              setTimeout(() => {
+                document.getElementById('comparative-growth-chart-section')?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }}
+            className="px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 cursor-pointer"
+            title="Jump to 12-Month Inmate Admission Trends vs Capacity Limits Recharts Chart"
+          >
+            <TrendingUp className="w-4 h-4 text-emerald-600" />
+            <span>12M Growth Chart</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded font-bold bg-emerald-600 text-white">
+              CHART
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveView('capacity');
+              setTimeout(() => {
+                document.getElementById('capacity-projection-section')?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }}
+            className="px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 cursor-pointer"
+            title="Jump to 30-Day Capacity Projection Line Chart"
+          >
+            <TrendingUp className="w-4 h-4 text-[#714B67]" />
+            <span>30-Day Forecast</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded font-bold bg-[#714B67]/15 text-[#714B67]">
+              TREND
+            </span>
+          </button>
+
+          {/* High-Risk Printable PDF Summary Report Trigger */}
+          <button
+            onClick={() => {
+              setReportInitialFilter('all_high_risk');
+              setIsReportModalOpen(true);
+            }}
+            className="px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-300 cursor-pointer shadow-2xs"
+            title="Generate a printable PDF-ready summary of high-risk facilities, incident counts and capacity usage"
+          >
+            <Printer className="w-4 h-4 text-rose-600" />
+            <span>High-Risk Report</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded font-bold bg-rose-600 text-white">
+              PDF
+            </span>
+          </button>
+
+          {/* Calendar-View Sidebar Trigger for Safety Inspections & Preventative Maintenance */}
+          <button
+            onClick={() => setIsCalendarSidebarOpen(prev => !prev)}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs border ${
+              isCalendarSidebarOpen
+                ? 'bg-[#714B67] text-white border-[#5a3b52] ring-2 ring-purple-300'
+                : 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-200'
+            }`}
+            title="Open Calendar-View Sidebar to track upcoming safety inspections and preventative maintenance for specific facility blocks"
+          >
+            <CalendarDays className={`w-4 h-4 ${isCalendarSidebarOpen ? 'text-amber-300' : 'text-[#714B67]'}`} />
+            <span>Block Safety & Maintenance</span>
+            <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded font-bold ${
+              isCalendarSidebarOpen ? 'bg-amber-400 text-slate-950' : 'bg-[#714B67] text-white'
+            }`}>
+              CALENDAR
+            </span>
+          </button>
+        </div>
+
+        <div className="text-xs text-slate-500 font-medium">
+          {activeView === 'growth'
+            ? 'Longitudinal 12-Month Surveillance: Inmate admission trends, physical muster vs. statutory capacity limits'
+            : activeView === 'capacity'
+            ? 'Monitoring real-time bed capacities, overcrowding ratios, and re-allocations'
+            : securityHeatmapEnabled
+            ? 'Security Heatmap Active: Visualizing facility density, guard ratios & incident frequency as green-to-red gradients'
+            : 'Spatial density overlays of escape attempts, medical code reds, and compound perimeter breaches'}
+        </div>
+      </div>
+
+      {activeView === 'growth' ? (
+        <div className="space-y-6">
+          <ComparativeGrowthChart
+            facilities={facilities}
+            inmates={inmates}
+            selectedFacilityId={selectedFacilityId}
+            onSelectFacility={onSelectFacility}
+            onNavigateToTransfers={onNavigateToTransfers}
+          />
+        </div>
+      ) : activeView === 'hotspot' ? (
+        <FacilityHotspotView
+          facilities={facilities}
+          inmates={inmates}
+          selectedFacilityId={selectedFacilityId}
+          onSelectFacility={onSelectFacility}
+          onNavigateToTransfers={onNavigateToTransfers}
+          onOpenTransferModal={onOpenTransferModal}
+          securityHeatmapEnabled={securityHeatmapEnabled}
+          onToggleSecurityHeatmap={setSecurityHeatmapEnabled}
+          securityHeatmapMetric={securityHeatmapMetric}
+          onSelectSecurityHeatmapMetric={setSecurityHeatmapMetric}
+        />
+      ) : (
+        <>
+          {/* CRITICAL SECURITY ALERT BROADCAST BANNER */}
+          {criticalAlertCount > 0 && (
+            <div className="bg-gradient-to-r from-rose-900 via-rose-800 to-amber-900 text-white border-2 border-rose-500 rounded-xl p-4 sm:p-4.5 shadow-md flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="p-2.5 bg-rose-600 rounded-xl shrink-0 shadow-sm animate-pulse mt-0.5">
+                  <Siren className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-mono font-black uppercase px-2 py-0.5 rounded bg-black/40 text-amber-300 border border-amber-400/30">
+                      CRITICAL ALERT OVERLAY ENGAGED
+                    </span>
+                    <span className="text-sm font-extrabold text-white">
+                      {criticalAlertCount} of {facilities.length} Facilities Under Severe Operational Strain
+                    </span>
+                  </div>
+                  <p className="text-xs text-rose-100 mt-1 leading-relaxed max-w-3xl">
+                    Dangerous custodial conditions detected in{' '}
+                    <strong className="text-white font-semibold underline decoration-rose-300">
+                      {criticalAlertFacilities.map(f => {
+                        const a = facilityAlertMap.get(f.id);
+                        return `${f.name} (${a?.ratio}:1 Ratio${a?.hasOngoingIncidents ? ' • Active Incident' : ''})`;
+                      }).join(', ')}
+                    </strong>.
+                    Staffing ratios exceed 10.0:1 statutory safety ceiling or ongoing active security incidents remain uncontained. Rapid emergency re-allocation and situational monitoring required.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                <button
+                  onClick={() => setCapacityFilter(capacityFilter === 'criticalAlert' ? 'all' : 'criticalAlert')}
+                  className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs ${
+                    capacityFilter === 'criticalAlert'
+                      ? 'bg-white text-rose-900 shadow-md font-black'
+                      : 'bg-rose-700 hover:bg-rose-600 text-white border border-rose-400'
+                  }`}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>{capacityFilter === 'criticalAlert' ? 'Showing Alerts Only' : `Filter Critical Alerts (${criticalAlertCount})`}</span>
+                </button>
+
+                {criticalAlertFacilities.length > 0 && (
+                  <button
+                    onClick={() => setSelectedSitrepFacility(criticalAlertFacilities[0])}
+                    className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                    title="Open Emergency SITREP Briefing for most critical facility"
+                  >
+                    <Radio className="w-3.5 h-3.5 text-slate-950 animate-pulse" />
+                    <span>Open SITREP</span>
+                  </button>
+                )}
+
+                {/* Print Critical Alerts Report Button */}
+                <button
+                  onClick={() => {
+                    setReportInitialFilter('critical_alerts');
+                    setIsReportModalOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-rose-950/90 hover:bg-rose-900 text-amber-300 border border-amber-400/40 font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                  title="Generate printable PDF SITREP report for critical alert facilities"
+                >
+                  <Printer className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Print Alert Report</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* URGENT CAPACITY ADVISORY BANNER FOR FACILITIES EXCEEDING 90% */}
       {exceeding90Count > 0 && (
         <div className="bg-rose-50/90 border-2 border-rose-300 rounded-lg p-4 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
@@ -179,6 +597,19 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
             >
               <Filter className="w-3.5 h-3.5" />
               <span>{capacityFilter === 'exceeding90' ? 'Showing >90% Only' : `Filter >90% (${exceeding90Count})`}</span>
+            </button>
+
+            {/* Print Overcrowded Facilities Capacity Report */}
+            <button
+              onClick={() => {
+                setReportInitialFilter('overcrowded');
+                setIsReportModalOpen(true);
+              }}
+              className="px-3 py-2 bg-white hover:bg-rose-100 border border-rose-300 text-rose-900 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition-all whitespace-nowrap"
+              title="Generate printable capacity report for overcrowded facilities"
+            >
+              <Printer className="w-3.5 h-3.5 text-rose-600" />
+              <span>Print Capacity Audit</span>
             </button>
 
             {onNavigateToTransfers && (
@@ -410,9 +841,22 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
 
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           {/* Visual Status Indicator Badges */}
-                          {item.occupancyRate > 100 ? (
+                          {item.isCriticalAlert ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const f = facilities.find(fac => fac.id === item.id);
+                                if (f) setSelectedSitrepFacility(f);
+                              }}
+                              className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white shadow-2xs flex items-center gap-1 transition-colors"
+                              title="Click to inspect Critical Alert SITREP"
+                            >
+                              <Siren className="w-3 h-3 animate-pulse text-white" />
+                              ALERT ({item.ratio}:1)
+                            </button>
+                          ) : item.occupancyRate > 100 ? (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
                               {item.occupancyRate}% Critical
@@ -429,7 +873,7 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
                           )}
                         </div>
                         <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                          {item.currentInmates}/{item.capacity} beds
+                          {item.currentInmates}/{item.capacity} beds • {item.activeOfficers} guards
                         </div>
                       </div>
 
@@ -480,6 +924,24 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
         </div>
       </div>
 
+      {/* 30-Day Predictive Inmate Capacity Trends & Court Release Forecasting Line Chart */}
+      <CapacityProjectionChart
+        facilities={facilities}
+        inmates={inmates}
+        selectedFacilityId={selectedFacilityId}
+        onSelectFacility={onSelectFacility}
+        onNavigateToTransfers={onNavigateToTransfers}
+      />
+
+      {/* 12-Month Comparative Growth Chart: Inmate Admission Trends vs. Capacity Limits */}
+      <ComparativeGrowthChart
+        facilities={facilities}
+        inmates={inmates}
+        selectedFacilityId={selectedFacilityId}
+        onSelectFacility={onSelectFacility}
+        onNavigateToTransfers={onNavigateToTransfers}
+      />
+
       {/* Facilities Grid Section Header & Filter Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
         <div className="flex items-center gap-2">
@@ -490,7 +952,7 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs text-slate-500 mr-1">Filter by Capacity:</span>
+          <span className="text-xs text-slate-500 mr-1">Filter by Status:</span>
           <button
             onClick={() => setCapacityFilter('all')}
             className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
@@ -500,6 +962,19 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
             }`}
           >
             All ({facilities.length})
+          </button>
+          <button
+            onClick={() => setCapacityFilter('criticalAlert')}
+            className={`px-2.5 py-1 rounded text-xs font-bold transition-colors flex items-center gap-1.5 shadow-2xs ${
+              capacityFilter === 'criticalAlert'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'bg-rose-50 border border-rose-300 text-rose-800 hover:bg-rose-100'
+            }`}
+            title="Show facilities with high inmate-to-officer ratios or active security incidents"
+          >
+            <Siren className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+            <span>Critical Alerts ({criticalAlertCount})</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping" />
           </button>
           <button
             onClick={() => setCapacityFilter('exceeding90')}
@@ -532,6 +1007,8 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
           const isOvercrowded = fac.currentInmates > fac.capacity;
           const isExceeding90 = occupancyRate >= 90;
           const isSelected = selectedFacilityId === fac.id;
+          const alertData = facilityAlertMap.get(fac.id);
+          const isCriticalAlert = alertData?.isCriticalAlert ?? false;
           const facilityInmates = inmates.filter(i => i.facilityId === fac.id);
           const transferableInmates = facilityInmates.filter(
             i => i.custodyStatus !== 'escaped' && i.custodyStatus !== 'discharged'
@@ -545,6 +1022,8 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
               className={`bg-white rounded-lg border transition-all shadow-xs p-5 flex flex-col justify-between ${
                 isSelected
                   ? 'border-[#714B67] ring-2 ring-[#714B67]/20 shadow-md'
+                  : isCriticalAlert
+                  ? 'border-rose-500 ring-2 ring-rose-500/50 shadow-md bg-gradient-to-b from-rose-50/40 via-white to-white relative overflow-hidden'
                   : isOvercrowded
                   ? 'border-rose-300 ring-1 ring-rose-300/60 hover:border-rose-400'
                   : isExceeding90
@@ -553,6 +1032,43 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
               }`}
             >
               <div>
+                {/* CRITICAL ALERT OVERLAY TOP BANNER */}
+                {isCriticalAlert && (
+                  <div className="bg-gradient-to-r from-rose-700 via-rose-600 to-amber-700 text-white px-3.5 py-2 -mx-5 -mt-5 mb-3.5 flex items-center justify-between gap-2 shadow-xs border-b border-rose-800">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="p-1 bg-white/20 rounded animate-pulse shrink-0">
+                        <Siren className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-mono font-black uppercase tracking-wider bg-black/40 px-1.5 py-0.5 rounded">
+                            CRITICAL ALERT
+                          </span>
+                          <span className="text-xs font-bold truncate">
+                            {alertData?.hasOngoingIncidents && alertData?.isHighRatio
+                              ? 'High Custody Ratio & Active Incident'
+                              : alertData?.hasOngoingIncidents
+                              ? 'Active Security Incident in Progress'
+                              : 'High Inmate-to-Officer Ratio'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedSitrepFacility(fac);
+                      }}
+                      className="px-2.5 py-1 bg-white hover:bg-rose-100 text-rose-900 rounded text-[10px] font-black tracking-wide uppercase transition-colors shrink-0 shadow-xs flex items-center gap-1"
+                      title="Open Emergency SITREP & Incident Command"
+                    >
+                      <Radio className="w-3 h-3 text-rose-700 animate-pulse" />
+                      <span>SITREP</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Header: Code & Type badge + High Capacity Badge */}
                 <div className="flex items-start justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
@@ -569,23 +1085,31 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
                     </span>
                   </div>
 
-                  {/* VISUAL STATUS INDICATOR BADGES FOR CAPACITY */}
-                  {isOvercrowded ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 shadow-xs animate-pulse">
-                      <ShieldAlert className="w-3 h-3 text-rose-600" />
-                      CRITICAL: {occupancyRate}%
-                    </span>
-                  ) : isExceeding90 ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-xs">
-                      <AlertTriangle className="w-3 h-3 text-amber-600" />
-                      ALERT: {occupancyRate}% (&gt;90%)
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      Normal: {occupancyRate}%
-                    </span>
-                  )}
+                  {/* VISUAL STATUS INDICATOR BADGES FOR CAPACITY & RATIO */}
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    {isCriticalAlert && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white shadow-xs animate-pulse">
+                        <Siren className="w-3 h-3 text-white" />
+                        RATIO {alertData?.ratio}:1
+                      </span>
+                    )}
+                    {isOvercrowded ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 shadow-xs">
+                        <ShieldAlert className="w-3 h-3 text-rose-600" />
+                        CRITICAL: {occupancyRate}%
+                      </span>
+                    ) : isExceeding90 ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-xs">
+                        <AlertTriangle className="w-3 h-3 text-amber-600" />
+                        ALERT: {occupancyRate}% (&gt;90%)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        Normal: {occupancyRate}%
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <h3 className="text-base font-bold text-slate-900 mt-2.5 leading-snug">
@@ -595,6 +1119,93 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
                   <MapPin className="w-3.5 h-3.5 text-slate-400" />
                   <span>{fac.location} ({fac.county} County)</span>
                 </div>
+
+                {/* CRITICAL ALERT OVERLAY BOX: Custodial Ratio & Active Incidents */}
+                {isCriticalAlert && alertData && (
+                  <div className="mt-3 p-3 rounded-lg border-2 border-rose-300 bg-rose-50/80 space-y-2.5">
+                    {/* Ratio breakdown */}
+                    <div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-extrabold text-rose-950 flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-rose-600" />
+                          <span>Custodial Supervision Ratio</span>
+                        </span>
+                        <span className={`text-[10px] font-mono font-black px-2 py-0.5 rounded ${
+                          alertData.isHighRatio ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white'
+                        }`}>
+                          {alertData.ratio}:1 RATIO
+                        </span>
+                      </div>
+
+                      <div className="text-[11px] text-slate-700 flex justify-between items-center mt-1">
+                        <span>{alertData.activeOfficers} Active Guards / {fac.currentInmates} Inmates</span>
+                        <span className="font-mono font-bold text-rose-700">Deficit: -{alertData.officerDeficit} Guards</span>
+                      </div>
+
+                      {/* Visual Staffing Bar */}
+                      <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden flex mt-1.5">
+                        <div
+                          className="bg-emerald-500 h-full"
+                          style={{ width: `${Math.min(100, (6 / alertData.ratio) * 100)}%` }}
+                          title="Mandela Standard (6:1)"
+                        />
+                        <div
+                          className="bg-rose-600 h-full animate-pulse"
+                          style={{ width: `${Math.max(0, 100 - (6 / alertData.ratio) * 100)}%` }}
+                          title="Dangerous supervisory strain"
+                        />
+                      </div>
+                      <div className="flex justify-between text-[9px] text-slate-500 font-mono mt-0.5">
+                        <span>6:1 Standard</span>
+                        <span className="text-rose-700 font-bold">{alertData.ratio}:1 Current Load</span>
+                      </div>
+                    </div>
+
+                    {/* Ongoing Security Incident Detail */}
+                    {alertData.hasOngoingIncidents && (
+                      <div className="pt-2 border-t border-rose-200 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-extrabold text-slate-900 flex items-center gap-1">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                            <span>Active Security Incident</span>
+                          </span>
+                          <span className="text-[9px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                            {alertData.ongoingIncidents[0].status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-rose-950 font-medium line-clamp-2">
+                          {alertData.ongoingIncidents[0].title}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Quick Action Button in Critical Alert Card */}
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedSitrepFacility(fac);
+                        }}
+                        className="flex-1 px-2.5 py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+                      >
+                        <Radio className="w-3 h-3 text-white animate-pulse" />
+                        <span>SITREP Command</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectFacility(fac.id);
+                          setActiveView('hotspot');
+                        }}
+                        className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded text-[11px] font-bold flex items-center justify-center gap-1 shadow-2xs transition-colors"
+                        title="Inspect live tactical hotspot map"
+                      >
+                        <Flame className="w-3 h-3 text-slate-950" />
+                        <span>Hotspot</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Overcrowding meter */}
                 <div className="mt-4 pt-3 border-t border-slate-100">
@@ -700,6 +1311,38 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
                   {facilityInmates.length} Sample Profiles
                 </span>
                 <div className="flex items-center gap-1.5">
+                  {isCriticalAlert && (
+                    <button
+                      onClick={() => setSelectedSitrepFacility(fac)}
+                      className="px-2 py-1.5 rounded text-xs font-bold text-rose-900 bg-rose-100 hover:bg-rose-200 border border-rose-300 flex items-center gap-1 transition-colors"
+                      title="Open Critical Alert Incident SITREP"
+                    >
+                      <Radio className="w-3.5 h-3.5 text-rose-700 animate-pulse" />
+                      <span>SITREP</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      onSelectFacility(fac.id);
+                      setActiveView('hotspot');
+                    }}
+                    className="px-2.5 py-1.5 rounded text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 flex items-center gap-1 transition-colors"
+                    title={`Inspect ${fac.name} Incident Hotspot Map`}
+                  >
+                    <Flame className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Hotspot</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onSelectFacility(fac.id);
+                      setIsCalendarSidebarOpen(true);
+                    }}
+                    className="px-2.5 py-1.5 rounded text-xs font-bold text-[#714B67] bg-purple-50 hover:bg-purple-100 border border-purple-200 flex items-center gap-1 transition-colors"
+                    title={`View upcoming safety inspections & preventative maintenance for ${fac.name} blocks`}
+                  >
+                    <CalendarDays className="w-3.5 h-3.5 text-[#714B67]" />
+                    <span>Block Cal</span>
+                  </button>
                   <button
                     onClick={() => onSelectFacility(isSelected ? '' : fac.id)}
                     className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
@@ -716,6 +1359,44 @@ export const MultiPrisonOverview: React.FC<MultiPrisonOverviewProps> = ({
           );
         })}
       </div>
+        </>
+      )}
+
+      {/* Critical Alert SITREP & Incident Command Modal */}
+      {selectedSitrepFacility && (
+        <CriticalAlertSitrepModal
+          facility={selectedSitrepFacility}
+          onClose={() => setSelectedSitrepFacility(null)}
+          onNavigateToTransfers={onNavigateToTransfers}
+          onOpenHotspotView={(facId) => {
+            onSelectFacility(facId);
+            setActiveView('hotspot');
+          }}
+        />
+      )}
+
+      {/* Printable PDF-Ready High-Risk Facility Reporting Tool Modal */}
+      {isReportModalOpen && (
+        <HighRiskFacilityReportModal
+          facilities={facilities}
+          inmates={inmates}
+          onClose={() => setIsReportModalOpen(false)}
+          onNavigateToTransfers={onNavigateToTransfers}
+          onSelectFacility={onSelectFacility}
+          initialFilter={reportInitialFilter}
+        />
+      )}
+
+      {/* Calendar-View Sidebar for Tracking Safety Inspections and Preventative Maintenance */}
+      <FacilityInspectionMaintenanceSidebar
+        isOpen={isCalendarSidebarOpen}
+        onClose={() => setIsCalendarSidebarOpen(false)}
+        facilities={facilities}
+        selectedFacilityId={selectedFacilityId}
+        onSelectFacility={onSelectFacility}
+        isDocked={isCalendarSidebarDocked}
+        onToggleDock={() => setIsCalendarSidebarDocked(prev => !prev)}
+      />
     </div>
   );
 };

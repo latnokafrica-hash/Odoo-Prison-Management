@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Inmate, PrisonFacility, SentenceRecord, RemissionLog, GratuityTransaction, UserRole, Language } from '../../types';
+import { Inmate, PrisonFacility, SentenceRecord, RemissionLog, GratuityTransaction, UserRole, Language, RehabilitationEnrollment } from '../../types';
 import { USER_ROLES } from '../../data/rolesData';
 import { MedicalIntakeView } from './MedicalIntakeView';
+import { IncidentTimelineView } from './IncidentTimelineView';
+import { CertificateModal } from '../rehab/CertificateModal';
+import { UpdateProgressModal } from '../rehab/UpdateProgressModal';
+import { PropertyVault } from './PropertyVault';
+import { BiometricVerificationModal } from './BiometricVerificationModal';
 import { 
   ArrowLeft, 
   Building2, 
@@ -30,7 +35,14 @@ import {
   AlertCircle,
   Stethoscope,
   Activity,
-  HeartPulse
+  HeartPulse,
+  Award,
+  TrendingUp,
+  Printer,
+  Camera,
+  ScanFace,
+  Fingerprint,
+  Scan
 } from 'lucide-react';
 
 interface InmateFormViewProps {
@@ -43,7 +55,7 @@ interface InmateFormViewProps {
   onOpenEscapeModal: (inmate: Inmate) => void;
   onOpenDischargeModal: (inmate: Inmate) => void;
   currentUserRole?: UserRole;
-  initialTab?: 'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights';
+  initialTab?: 'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights' | 'timeline';
 }
 
 export const InmateFormView: React.FC<InmateFormViewProps> = ({
@@ -58,7 +70,7 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
   currentUserRole = 'superintendent',
   initialTab = 'sentence'
 }) => {
-  const [activeTab, setActiveTab] = useState<'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights' | 'timeline'>(initialTab);
 
   useEffect(() => {
     if (initialTab) {
@@ -78,10 +90,36 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
   const [remissionAdjustDays, setRemissionAdjustDays] = useState<number>(-14);
   const [remissionReason, setRemissionReason] = useState('Disciplinary Tribunal: Possession of unauthorized contraband');
 
+  // Biometric verification modal state
+  const [showBiometricModal, setShowBiometricModal] = useState(false);
+
   // Wage credit quick-action state
   const [showWageModal, setShowWageModal] = useState(false);
   const [wageAmount, setWageAmount] = useState<number>(25.00);
   const [wageProgram, setWageProgram] = useState('Vocational Workshop Labor Allowance');
+
+  // Rehabilitation & Certificate Modals
+  const [selectedCertEnrollment, setSelectedCertEnrollment] = useState<RehabilitationEnrollment | null>(null);
+  const [selectedProgressEnrollment, setSelectedProgressEnrollment] = useState<RehabilitationEnrollment | null>(null);
+
+  const handleSaveProgramProgress = (inmateId: string, updatedProg: RehabilitationEnrollment) => {
+    const updatedPrograms = inmate.programs.map(p => p.id === updatedProg.id ? updatedProg : p);
+    const updated: Inmate = {
+      ...inmate,
+      programs: updatedPrograms,
+      chatterLogs: [
+        {
+          id: `ch-${Date.now()}`,
+          date: new Date().toISOString().replace('T', ' ').slice(0, 16),
+          author: 'Vocational Training Officer',
+          message: `Updated course progress for ${updatedProg.programName}: ${updatedProg.progressPercent}% (${updatedProg.status.replace('_', ' ')})`,
+          type: 'activity'
+        },
+        ...inmate.chatterLogs
+      ]
+    };
+    onUpdateInmate(updated);
+  };
 
   const primarySentence = inmate.sentences[0];
 
@@ -254,6 +292,31 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
         <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 select-none">
           {/* Action Buttons Toolbar */}
           <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
+            {/* Biometric Verification Button */}
+            <button
+              onClick={() => setShowBiometricModal(true)}
+              className={`px-2.5 py-1 text-xs font-semibold rounded shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer border ${
+                inmate.biometrics?.lastVerificationStatus === 'verified'
+                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
+                  : 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-300'
+              }`}
+              title="Launch Camera Facial Recognition & AFIS Fingerprint Verification"
+            >
+              <ScanFace className={`w-3.5 h-3.5 ${
+                inmate.biometrics?.lastVerificationStatus === 'verified' ? 'text-emerald-700' : 'text-[#714B67]'
+              }`} />
+              <span>Biometric Verification</span>
+              {inmate.biometrics?.lastVerificationStatus === 'verified' ? (
+                <span className="text-[9px] font-mono font-bold bg-emerald-600 text-white px-1.5 py-0.2 rounded-full">
+                  VERIFIED
+                </span>
+              ) : (
+                <span className="text-[9px] font-mono font-bold bg-purple-700 text-white px-1.5 py-0.2 rounded-full">
+                  SCAN
+                </span>
+              )}
+            </button>
+
             <button
               onClick={() => onOpenTransferModal(inmate)}
               className="px-2.5 py-1 text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded shadow-2xs transition-colors flex items-center gap-1"
@@ -448,6 +511,27 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
               </div>
             </div>
           </button>
+
+          {/* Smart Button 7: Incident Timeline */}
+          <button 
+            onClick={() => setActiveTab('timeline')}
+            className={`flex items-center space-x-2 px-3 py-1.5 rounded border text-left transition-colors ${
+              activeTab === 'timeline' 
+                ? 'border-purple-400 bg-purple-50 text-purple-900 shadow-2xs' 
+                : 'border-slate-200 hover:bg-slate-50 text-slate-800'
+            }`}
+          >
+            <History className="w-4 h-4 text-purple-600" />
+            <div>
+              <div className="text-[11px] font-bold leading-none flex items-center gap-1">
+                <span>Incident Timeline</span>
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+              </div>
+              <div className="text-[10px] text-slate-500">
+                Disciplinary • Medical • Stage
+              </div>
+            </div>
+          </button>
         </div>
 
         {/* Inmate Profile Title & Core Demographics */}
@@ -493,6 +577,23 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
                   </div>
                   <span>•</span>
                   <span>Admitted: {inmate.admissionDate}</span>
+                  <span>•</span>
+                  <button
+                    onClick={() => setShowBiometricModal(true)}
+                    className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full text-[11px] transition-colors cursor-pointer border ${
+                      inmate.biometrics?.lastVerificationStatus === 'verified'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                        : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                    }`}
+                    title="Click to execute Biometric Camera & Fingerprint Verification"
+                  >
+                    <ScanFace className="w-3 h-3 text-current" />
+                    <span>
+                      {inmate.biometrics?.lastVerificationStatus === 'verified'
+                        ? `Biometrics Verified (${inmate.biometrics.lastVerificationConfidence || 99}%)`
+                        : 'Verify Biometrics (Camera/AFIS)'}
+                    </span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -625,6 +726,21 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
                 {inmate.medicalIntake.allergies.length}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('timeline')}
+            className={`py-2.5 px-3 border-b-2 flex items-center gap-1.5 transition-colors ${
+              activeTab === 'timeline'
+                ? 'border-[#714B67] text-[#714B67] font-bold bg-white'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <History className="w-3.5 h-3.5 text-purple-600" />
+            <span>Incident Timeline</span>
+            <span className="ml-1 px-1.5 py-0.2 bg-purple-100 text-[#714B67] text-[10px] font-mono font-bold rounded-full border border-purple-200">
+              Audit
+            </span>
           </button>
         </div>
 
@@ -936,38 +1052,113 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
 
               {/* Enrolled Vocational & Rehabilitation Programs */}
               <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-                  Active Vocational & Rehabilitation Programs
-                </h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Active Vocational & Rehabilitation Programs ({inmate.programs.length})
+                  </h4>
+                  <span className="text-[11px] text-slate-500">
+                    Accredited Curriculum & Trade Tests
+                  </span>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {inmate.programs.map(prg => (
-                    <div key={prg.id} className="p-3 border border-slate-200 rounded-lg bg-white shadow-2xs">
-                      <div className="flex items-start justify-between">
+                  {inmate.programs.map(prg => {
+                    const isCompleted = prg.status === 'completed' || prg.progressPercent === 100;
+                    return (
+                      <div key={prg.id} className="p-3.5 border border-slate-200 rounded-lg bg-white shadow-2xs flex flex-col justify-between">
                         <div>
-                          <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
-                            {prg.category}
-                          </span>
-                          <h5 className="font-bold text-xs text-slate-900 mt-1">{prg.programName}</h5>
-                          <div className="text-[11px] text-slate-500">Instructor: {prg.instructor}</div>
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                prg.category === 'vocational' ? 'bg-amber-100 text-amber-900' :
+                                prg.category === 'education' ? 'bg-blue-100 text-blue-900' :
+                                'bg-purple-100 text-purple-900'
+                              }`}>
+                                {prg.category}
+                              </span>
+                              <h5 className="font-bold text-xs text-slate-900 mt-1">{prg.programName}</h5>
+                              <div className="text-[11px] text-slate-500">Instructor: {prg.instructor}</div>
+                              {prg.certifyingBody && (
+                                <div className="text-[10px] text-slate-400 mt-0.5">Certifier: {prg.certifyingBody}</div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs font-mono font-bold text-emerald-700">
+                                {prg.dailyEarningRate > 0 ? `+$${prg.dailyEarningRate.toFixed(2)}/d` : 'Non-wage'}
+                              </span>
+                              <div className="mt-1">
+                                {isCompleted ? (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                                    Certified
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">
+                                    In Training
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-3">
+                            <div className="flex justify-between text-[10px] text-slate-600 mb-1">
+                              <span>Curriculum Mastery: <strong>{prg.progressPercent}%</strong></span>
+                              <span className="font-mono">
+                                {prg.attendanceHoursCompleted || Math.round((prg.progressPercent / 100) * (prg.totalCourseHours || 400))}h logged
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  isCompleted ? 'bg-emerald-600' : 'bg-[#714B67]'
+                                }`}
+                                style={{ width: `${prg.progressPercent}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {prg.certificateNumber && (
+                            <div className="mt-2 text-[10px] font-mono text-amber-800 bg-amber-50/80 px-2 py-1 rounded border border-amber-200 flex items-center justify-between">
+                              <span className="flex items-center gap-1 font-bold">
+                                <Award className="w-3.5 h-3.5 text-amber-600" />
+                                {prg.certificateNumber}
+                              </span>
+                              <span className="text-slate-600">{prg.gradeOrScore || 'Distinction'}</span>
+                            </div>
+                          )}
                         </div>
-                        <span className="text-xs font-mono font-semibold text-emerald-700">
-                          ${prg.dailyEarningRate.toFixed(2)} / day
-                        </span>
+
+                        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProgressEnrollment(prg)}
+                            className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded flex items-center gap-1 transition-colors"
+                          >
+                            <TrendingUp className="w-3.5 h-3.5" />
+                            Update Progress
+                          </button>
+
+                          {isCompleted ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCertEnrollment(prg)}
+                              className="px-2.5 py-1 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-500 rounded flex items-center gap-1 transition-colors shadow-2xs"
+                            >
+                              <Award className="w-3.5 h-3.5" />
+                              View Certificate
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedProgressEnrollment(prg)}
+                              className="text-[11px] text-[#714B67] hover:underline font-semibold"
+                            >
+                              Fast-track to Certify
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="mt-2.5">
-                        <div className="flex justify-between text-[10px] text-slate-500 mb-1">
-                          <span>Curriculum Completion</span>
-                          <span className="font-bold text-slate-700">{prg.progressPercent}%</span>
-                        </div>
-                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                          <div
-                            className="bg-emerald-600 h-full rounded-full transition-all"
-                            style={{ width: `${prg.progressPercent}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1068,11 +1259,28 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
                     <span className="text-slate-500">Admission Type:</span>
                     <span className="font-semibold text-[#714B67] capitalize">{inmate.admissionType.replace('_', ' ')}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-slate-500">Biometric Enrollment:</span>
-                    <span className="font-medium text-emerald-700 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> 10-Print & Iris Verified
-                    </span>
+                    <button
+                      onClick={() => setShowBiometricModal(true)}
+                      className={`font-semibold flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] transition-colors cursor-pointer ${
+                        inmate.biometrics?.lastVerificationStatus === 'verified'
+                          ? 'text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
+                          : 'text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200'
+                      }`}
+                    >
+                      {inmate.biometrics?.lastVerificationStatus === 'verified' ? (
+                        <>
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>10-Print & Facial Verified ({inmate.biometrics.lastVerificationConfidence || 99}%)</span>
+                        </>
+                      ) : (
+                        <>
+                          <ScanFace className="w-3 h-3 text-[#714B67]" />
+                          <span>Pending Camera/AFIS Scan</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -1104,54 +1312,118 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
                 </div>
               </div>
 
-              {/* Sealed Personal Property Vault Table */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-amber-600" />
-                    Intake Sealed Property Vault Inventory
-                  </h4>
-                  <span className="text-[10px] text-slate-500">
-                    Sealed in tamper-evident security containers upon admission
-                  </span>
+              {/* Dedicated Biometric Intake & Identity Authentication Suite */}
+              <div className="border border-slate-200 rounded-xl bg-gradient-to-br from-slate-50 via-white to-purple-50/30 p-4 shadow-2xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-[#714B67] text-white rounded-lg shadow-xs">
+                      <ScanFace className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                        <span>Biometric Identity Verification & Authentication Station</span>
+                        {inmate.biometrics?.lastVerificationStatus === 'verified' && (
+                          <span className="px-2 py-0.2 text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 rounded-full border border-emerald-200">
+                            CERTIFIED ACTIVE
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Requests optical webcam camera access for live facial recognition & simulated AFIS 10-print fingerprint matching.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowBiometricModal(true)}
+                    className="px-3.5 py-2 text-xs font-bold text-white bg-[#714B67] hover:bg-[#5c3c54] active:scale-95 rounded-lg shadow-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    <Camera className="w-4 h-4 text-amber-300" />
+                    <span>Launch Biometric Verification</span>
+                  </button>
                 </div>
 
-                {inmate.propertyItems.length > 0 ? (
-                  <div className="border border-slate-200 rounded overflow-hidden text-xs">
-                    <table className="w-full text-left">
-                      <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                        <tr>
-                          <th className="py-2 px-3">Seal Bag #</th>
-                          <th className="py-2 px-3">Item Description</th>
-                          <th className="py-2 px-3">Category</th>
-                          <th className="py-2 px-3">Quantity</th>
-                          <th className="py-2 px-3">Serial / Details</th>
-                          <th className="py-2 px-3">Vault Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {inmate.propertyItems.map(p => (
-                          <tr key={p.id} className="hover:bg-slate-50">
-                            <td className="py-2 px-3 font-mono font-bold text-slate-800">{p.sealBagNumber}</td>
-                            <td className="py-2 px-3 font-medium text-slate-900">{p.description}</td>
-                            <td className="py-2 px-3 capitalize">{p.category}</td>
-                            <td className="py-2 px-3 font-mono">{p.quantity}</td>
-                            <td className="py-2 px-3 text-slate-500">{p.serialOrDetail || p.condition}</td>
-                            <td className="py-2 px-3">
-                              <span className="text-[10px] font-semibold bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200">
-                                {p.status.replace(/_/g, ' ')}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                {/* Status Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  {/* Facial Recognition Module */}
+                  <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Camera className="w-3.5 h-3.5 text-cyan-600" />
+                        <span>Facial Landmark Mesh</span>
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-slate-500">ISO 19794-5</span>
+                    </div>
+                    <div className="text-[11px] text-slate-600">
+                      {inmate.biometrics?.lastVerificationStatus === 'verified' ? (
+                        <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Match Confirmed: {inmate.biometrics.facialMatchConfidence || 98.4}%
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">Optical camera stream calibration required</span>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded text-center text-xs text-slate-500">
-                    No personal valuables logged in vault.
+
+                  {/* Fingerprint / AFIS Module */}
+                  <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <Fingerprint className="w-3.5 h-3.5 text-purple-600" />
+                        <span>AFIS 10-Print Minutiae</span>
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-slate-500">500 DPI WSQ</span>
+                    </div>
+                    <div className="text-[11px] text-slate-600">
+                      {inmate.biometrics?.lastVerificationStatus === 'verified' ? (
+                        <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Minutiae Match: {inmate.biometrics.fingerprintMatchConfidence || 99.2}%
+                        </span>
+                      ) : (
+                        <span className="text-slate-500">Platen sensor awaiting finger placement</span>
+                      )}
+                    </div>
                   </div>
-                )}
+
+                  {/* Custody Certification Digest */}
+                  <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Legal Verification Status</span>
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-slate-500">AUDIT</span>
+                    </div>
+                    <div className="text-[11px]">
+                      {inmate.biometrics?.lastVerificationStatus === 'verified' ? (
+                        <div className="text-slate-700 space-y-0.5">
+                          <div className="font-semibold text-emerald-800">
+                            Verified on {inmate.biometrics.lastVerificationDate?.slice(0, 10)}
+                          </div>
+                          <div className="text-[10px] text-slate-500 truncate">
+                            By {inmate.biometrics.verifiedByOfficer || 'Intake Officer'}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-amber-700 font-medium">
+                          Pending initial admission authentication
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sealed Personal Property Vault & Discharge Export */}
+              <div className="pt-2">
+                <PropertyVault 
+                  inmate={inmate} 
+                  onUpdateInmate={onUpdateInmate} 
+                  language={language} 
+                  showDischargeActions={true} 
+                />
               </div>
             </div>
           )}
@@ -1323,6 +1595,16 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
               language={language}
               currentUserRole={currentUserRole}
               onUpdateInmate={onUpdateInmate}
+            />
+          )}
+
+          {/* TAB 8: INCIDENT & INTERVENTION CHRONOLOGICAL TIMELINE */}
+          {activeTab === 'timeline' && (
+            <IncidentTimelineView
+              inmate={inmate}
+              facilities={facilities}
+              onUpdateInmate={onUpdateInmate}
+              currentUserRole={currentUserRole}
             />
           )}
 
@@ -1504,6 +1786,39 @@ export const InmateFormView: React.FC<InmateFormViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Certificate Viewer Modal */}
+      {selectedCertEnrollment && (
+        <CertificateModal
+          isOpen={Boolean(selectedCertEnrollment)}
+          onClose={() => setSelectedCertEnrollment(null)}
+          inmate={inmate}
+          enrollment={selectedCertEnrollment}
+        />
+      )}
+
+      {/* Biometric Verification Modal (Camera & Fingerprint) */}
+      <BiometricVerificationModal
+        isOpen={showBiometricModal}
+        onClose={() => setShowBiometricModal(false)}
+        inmate={inmate}
+        onUpdateInmate={onUpdateInmate}
+        currentOfficerName={roleProfile.name || 'Biometrics Intake Officer'}
+      />
+
+      {/* Update Progress Modal */}
+      {selectedProgressEnrollment && (
+        <UpdateProgressModal
+          isOpen={Boolean(selectedProgressEnrollment)}
+          onClose={() => setSelectedProgressEnrollment(null)}
+          inmate={inmate}
+          enrollment={selectedProgressEnrollment}
+          onSave={handleSaveProgramProgress}
+          onOpenCertificate={(inm, enr) => {
+            setSelectedCertEnrollment(enr);
+          }}
+        />
       )}
 
     </div>

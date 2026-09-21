@@ -84,12 +84,12 @@ export default function App() {
   });
 
   const selectedInmate = inmates.find(i => i.id === selectedInmateId) || null;
-  const [inmateFormInitialTab, setInmateFormInitialTab] = useState<'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights'>('sentence');
+  const [inmateFormInitialTab, setInmateFormInitialTab] = useState<'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights' | 'timeline'>('sentence');
 
   // Handler: Select Inmate
   const handleSelectInmate = (
     inmate: Inmate, 
-    initialTab: 'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights' = 'sentence'
+    initialTab: 'intake' | 'medical' | 'sentence' | 'stages' | 'court' | 'transfers' | 'human_rights' | 'timeline' = 'sentence'
   ) => {
     setSelectedInmateId(inmate.id);
     setInmateFormInitialTab(initialTab);
@@ -271,6 +271,7 @@ export default function App() {
         onToggleLanguage={setLanguage}
         currentUserRole={currentUserRole}
         onSelectRole={setCurrentUserRole}
+        onSelectInmate={handleSelectInmate}
       />
 
       {/* 2. Sub Navbar (Contextual Actions, Search & View Switcher) */}

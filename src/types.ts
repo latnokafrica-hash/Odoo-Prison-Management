@@ -87,6 +87,20 @@ export type CourtCaseStatus =
 export type SentenceType = 'determinate' | 'indeterminate' | 'life' | 'fine_default';
 export type SentenceStructure = 'concurrent' | 'consecutive';
 
+export interface OngoingSecurityIncident {
+  id: string;
+  type: 'escape_attempt' | 'disturbance' | 'contraband_lockdown' | 'perimeter_breach' | 'hostage_situation' | 'medical_code_red';
+  title: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MODERATE';
+  reportedTime: string;
+  locationZone: string;
+  status: 'active_lockdown' | 'tactical_response' | 'contained_investigating';
+  description: string;
+  tacticalUnitsDeployed?: string[];
+  inmatesInvolvedCount?: number;
+  containmentEtaMinutes?: number;
+}
+
 export interface PrisonFacility {
   id: string;
   code: string;
@@ -99,6 +113,11 @@ export interface PrisonFacility {
   wardenName: string;
   securityRating: string;
   coordinates: { x: number; y: number }; // For visual national map
+  // Custodial Staffing & Inmate-to-Officer Ratios
+  activeOfficers?: number;
+  recommendedOfficers?: number;
+  // Live Active Incident Alerts
+  ongoingSecurityIncidents?: OngoingSecurityIncident[];
 }
 
 export interface InmatePropertyItem {
@@ -167,6 +186,17 @@ export interface RehabilitationEnrollment {
   status: 'in_progress' | 'completed' | 'withdrawn';
   dailyEarningRate: number; // e.g. $2.50 / day
   instructor: string;
+  completedDate?: string;
+  certificateNumber?: string;
+  certificateIssuedAt?: string;
+  certifyingBody?: string;
+  gradeOrScore?: string;
+  attendanceHoursCompleted?: number;
+  totalCourseHours?: number;
+  modulesCompleted?: number;
+  totalModules?: number;
+  skillsAcquired?: string[];
+  instructorRemarks?: string;
 }
 
 export interface GratuityTransaction {
@@ -387,6 +417,14 @@ export interface Inmate {
     irisScanCaptured: boolean;
     dnaSampleRef?: string;
     scarsTattoosMarks?: string;
+    lastVerificationDate?: string;
+    lastVerificationStatus?: 'verified' | 'unverified' | 'failed';
+    lastVerificationConfidence?: number;
+    facialMatchConfidence?: number;
+    fingerprintMatchConfidence?: number;
+    verifiedByOfficer?: string;
+    verificationMethod?: 'multimodal_camera_afis' | 'facial_scan' | 'fingerprint_scan';
+    capturedPhotoUrl?: string;
   };
   progressiveStageHistory?: any[];
   
@@ -422,6 +460,9 @@ export interface Inmate {
   // Discharge
   dischargeRecord?: DischargeClearance;
   
+  // Incident & Intervention Chronological Timeline
+  incidentTimelineEvents?: TimelineIncidentItem[];
+
   // Odoo Chatter Notes
   chatterLogs: {
     id: string;
@@ -430,6 +471,37 @@ export interface Inmate {
     message: string;
     type: 'log_note' | 'activity' | 'system';
   }[];
+}
+
+// Incident Timeline Types
+export type IncidentCategory = 'disciplinary' | 'medical' | 'reclassification';
+export type IncidentSeverity = 'critical' | 'high' | 'moderate' | 'routine' | 'positive';
+
+export interface TimelineIncidentItem {
+  id: string;
+  date: string;
+  time?: string;
+  category: IncidentCategory;
+  severity: IncidentSeverity;
+  title: string;
+  eventType: string;
+  description: string;
+  authority: string;
+  facilityName: string;
+  cellLocation?: string;
+  actionTaken?: string;
+  mandelaRuleCompliance?: {
+    compliant: boolean;
+    ruleNumber: string;
+    note: string;
+  };
+  metrics?: {
+    label: string;
+    value: string;
+    badgeColor?: string;
+  }[];
+  tags: string[];
+  isCustomLogged?: boolean;
 }
 
 // Meal & Nutrition Interfaces
@@ -841,5 +913,58 @@ export interface CellBlockInspectionRecord {
   summaryFindings: string;
   correctiveDirectives?: string;
   signature?: string;
+}
+
+// Facility Hotspot & Tactical Map Interfaces
+export type FacilityIncidentCategory = 'escape_attempt' | 'medical_alert' | 'violence_contraband' | 'structural_breach';
+export type FacilityIncidentSeverity = 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW';
+
+export interface FacilityIncident {
+  id: string;
+  facilityId: string;
+  facilityName: string;
+  title: string;
+  category: FacilityIncidentCategory;
+  severity: FacilityIncidentSeverity;
+  incidentDate: string; // YYYY-MM-DD
+  incidentTime?: string; // HH:mm
+  locationZoneId: string;
+  locationZoneName: string;
+  coordinates: { x: number; y: number }; // Percentage 0-100 on prison map
+  inmateId?: string;
+  inmateName?: string;
+  bookingNumber?: string;
+  description: string;
+  methodOrCause: string;
+  status: 'resolved' | 'active_investigation' | 'recaptured' | 'hospitalized' | 'foiled';
+  actionTaken: string;
+  superintendentDirective: string;
+  casualtiesOrInjuries?: string;
+  densityWeight: number; // 1 to 5 weighting for heatmap calculation
+  reportedByOfficer: string;
+}
+
+export interface FacilityMapZone {
+  id: string;
+  facilityId: string;
+  code: string;
+  name: string;
+  type: 'cell_block' | 'perimeter_fence' | 'watchtower' | 'medical_clinic' | 'mess_kitchen' | 'workshop' | 'exercise_yard' | 'sallyport' | 'admin_gate';
+  bounds: { x: number; y: number; width: number; height: number }; // Percentage coordinates
+  securityTier: 'SUPERMAX' | 'HIGH' | 'MEDIUM' | 'RESTRICTED';
+  cctvCoverage: 'FULL' | 'PARTIAL' | 'BLINDSPOT';
+  activeGuardPost: boolean;
+  guardCount: number;
+  description: string;
+}
+
+export interface FacilityHotspotMetrics {
+  totalIncidents: number;
+  escapeAttempts: number;
+  medicalAlerts: number;
+  violenceContraband: number;
+  highestRiskZoneName: string;
+  overallFacilityRiskScore: number; // 0-100
+  criticalActiveThreats: number;
 }
 
