@@ -660,8 +660,10 @@ export type OfficerRank =
   | 'Chief Inspector'
   | 'Inspector'
   | 'Senior Sergeant'
+  | 'Chief Sergeant'
   | 'Sergeant'
   | 'Corporal'
+  | 'Senior Officer'
   | 'Correctional Officer'
   | 'Tactical Specialist';
 
@@ -758,6 +760,11 @@ export interface EquipmentInventoryItem {
   discrepancyNote?: string;
   serialNumbers?: string[];
   verifiedByBoth: boolean;
+  lastInspectedAt?: string;
+  inspectedBy?: string;
+  criticality?: 'critical' | 'high' | 'standard';
+  batteryLevel?: number; // for radios/body cameras
+  sealNumber?: string; // for key rings and armory lockboxes
 }
 
 export interface CommanderSignOff {
@@ -779,6 +786,76 @@ export type HandoverStatus =
   | 'fully_signed' 
   | 'governor_certified' 
   | 'archived';
+
+// Shift Personnel Tracking & Safety Staffing Interfaces
+export type OfficerDutyStatus = 
+  | 'active_post'
+  | 'armed_patrol'
+  | 'relief_break'
+  | 'convoy_escort'
+  | 'standby_qrf';
+
+export interface SecurityOfficer {
+  id: string;
+  badgeNumber: string;
+  name: string;
+  rank: OfficerRank;
+  role: string;
+  assignedSector: string;
+  assignedPost: string;
+  shift: ShiftType;
+  callSign: string;
+  radioChannel: string;
+  checkInTime: string;
+  status: OfficerDutyStatus;
+  weaponIssued: string;
+  bodyCamIssued: string;
+  tacticalVest: boolean;
+  notes?: string;
+}
+
+export type LeaveRequestType = 
+  | 'annual_furlough'
+  | 'medical_sick'
+  | 'emergency_compassionate'
+  | 'training_recert'
+  | 'compensatory_rest';
+
+export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected' | 'deferred';
+
+export interface LeaveRequest {
+  id: string;
+  officerId: string;
+  officerName: string;
+  badgeNumber: string;
+  rank: OfficerRank;
+  leaveType: LeaveRequestType;
+  startDate: string;
+  endDate: string;
+  shiftsCovered: ShiftType[];
+  impactRisk: 'low' | 'moderate' | 'high_critical';
+  impactAssessment: string;
+  replacementOfficer?: string;
+  status: LeaveRequestStatus;
+  submittedAt: string;
+  decisionBy?: string;
+  decisionNotes?: string;
+}
+
+export interface ShiftStaffingRequirement {
+  facilityId: string;
+  shift: ShiftType;
+  minimumRequiredOfficers: number;
+  deployedOfficersCount: number;
+  mandatoryFixedPostsCount: number;
+  fixedPostsMannedCount: number;
+  qrfStandbyCount: number;
+  minimumQrfRequired: number;
+  guardToInmateRatio: string;
+  safetyComplianceRatio: number; // e.g. 1.18 = 118%
+  safetyStatus: 'OPTIMAL' | 'COMPLIANT' | 'BORDERLINE' | 'CRITICAL_DEFICIT';
+  recommendedAction?: string;
+}
 
 export interface ShiftHandoverBriefData {
   id: string;
@@ -803,12 +880,109 @@ export interface ShiftHandoverBriefData {
   risks: FacilityRiskItem[];
   tasks: PendingTaskItem[];
   equipment: EquipmentInventoryItem[];
+  personnelSummary?: {
+    staffing: ShiftStaffingRequirement;
+    officers: SecurityOfficer[];
+    leaveRequests: LeaveRequest[];
+  };
+  timelineEvents?: ShiftTimelineEvent[];
+  handoverNotes?: ShiftHandoverNote[];
   outgoingSignOff: CommanderSignOff | null;
   incomingSignOff: CommanderSignOff | null;
   governorSignOff: CommanderSignOff | null;
   generalNotes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Shift Handover Notes: Structured Commander Directives & Observations
+export type HandoverNoteCategory = 'maintenance' | 'unusual_behavior' | 'inmate_watch' | 'general_orders';
+export type HandoverNoteUrgency = 'routine' | 'elevated' | 'urgent' | 'critical';
+export type InmateWatchLevel = 
+  | 'standard' 
+  | 'suicide_watch_15m' 
+  | 'constant_1to1' 
+  | 'keep_separate' 
+  | 'medical_convalescence' 
+  | 'segregation_high_risk';
+
+export interface HandoverMaintenanceDetails {
+  equipmentOrAsset: string;
+  workOrderRef?: string;
+  trade: 'plumbing' | 'electrical' | 'locks_doors' | 'hvac' | 'cctv_sensors' | 'perimeter_fencing' | 'structural';
+  contractorAccessRequired: boolean;
+  contractorName?: string;
+  estimatedResolution?: string;
+}
+
+export interface HandoverBehaviorDetails {
+  inmateId?: string;
+  inmateName?: string;
+  behaviorType: 'agitating_tensions' | 'withdrawn_depression' | 'gang_posturing' | 'hoarding_contraband' | 'verbal_altercation' | 'unusual_solicitation' | 'paranoia_anxiety';
+  witnessingOfficers?: string[];
+  recommendedResponse: string;
+}
+
+export interface HandoverInmateWatchDetails {
+  inmateId: string;
+  inmateName: string;
+  cellLocation: string;
+  watchLevel: InmateWatchLevel;
+  watchIntervalMinutes: number; // e.g. 15 for 15-minute rounds
+  keepSeparatedFrom?: string[]; // IDs/names of incompatible inmates
+  specialInstructions: string;
+  assignedWatchPost?: string;
+}
+
+export interface ShiftHandoverNote {
+  id: string;
+  category: HandoverNoteCategory;
+  title: string;
+  content: string;
+  urgency: HandoverNoteUrgency;
+  location: string;
+  authorCommander: string;
+  authorBadge: string;
+  timestamp: string; // e.g. "13:35"
+  maintenanceDetails?: HandoverMaintenanceDetails;
+  behaviorDetails?: HandoverBehaviorDetails;
+  inmateWatchDetails?: HandoverInmateWatchDetails;
+  isAcknowledgedByIncoming?: boolean;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
+}
+
+// Shift Interactive Timeline & Chronological Operational Log
+export type ShiftEventType = 
+  | 'headcount_muster'
+  | 'security_incident'
+  | 'contraband_discovery'
+  | 'medical_emergency'
+  | 'escort_transit'
+  | 'visitation_event'
+  | 'perimeter_alert'
+  | 'maintenance_issue'
+  | 'command_directive'
+  | 'routine_patrol';
+
+export type ShiftEventSeverity = 'routine' | 'notable' | 'urgent' | 'critical';
+
+export interface ShiftTimelineEvent {
+  id: string;
+  timestamp: string; // e.g. "06:15"
+  title: string;
+  description: string;
+  category: ShiftEventType;
+  severity: ShiftEventSeverity;
+  location: string;
+  loggedBy: string;
+  badgeNumber?: string;
+  relatedInmate?: string;
+  actionTaken?: string;
+  isVerified?: boolean;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  shift?: ShiftType;
 }
 
 // Facility Inspection, Infrastructure & Sanitation Interfaces

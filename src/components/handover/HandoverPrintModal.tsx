@@ -12,8 +12,17 @@ import {
   AlertTriangle, 
   FileCheck, 
   Calendar, 
-  Clock 
+  Clock,
+  Download,
+  Users,
+  History,
+  NotebookPen,
+  Eye,
+  Wrench
 } from 'lucide-react';
+import { generateHandoverPdf } from '../../utils/handoverPdfExport';
+import { INITIAL_TIMELINE_EVENTS } from '../../data/timelineData';
+import { INITIAL_HANDOVER_NOTES } from '../../data/handoverNotesData';
 
 interface HandoverPrintModalProps {
   handover: ShiftHandoverBriefData;
@@ -79,7 +88,22 @@ ${handover.tasks.map((t, i) => `[${i + 1}] [${t.priority.toUpperCase()}] ${t.tit
 --------------------------------------------------------------------------------
 ${handover.equipment.map(e => `- ${e.name}: Expected ${e.expectedQty}, Counted ${e.countedQty} ${e.unit} [${e.condition.toUpperCase()}] Location: ${e.storageLocation} ${e.discrepancyNote ? `(Note: ${e.discrepancyNote})` : ''}`).join('\n')}
 
-5. DIGITAL SIGN-OFF & COMMAND RATIFICATION
+5. CHRONOLOGICAL SHIFT EVENTS LOG
+--------------------------------------------------------------------------------
+${(handover.timelineEvents || INITIAL_TIMELINE_EVENTS).map(ev => `[${ev.timestamp}] [${ev.severity.toUpperCase()}] ${ev.title} @ ${ev.location} (${ev.loggedBy})`).join('\n')}
+
+6. STRUCTURED SHIFT HANDOVER NOTES & DIRECTIVES
+--------------------------------------------------------------------------------
+${(handover.handoverNotes || INITIAL_HANDOVER_NOTES).map((n, i) => `[${i + 1}] [${n.category.toUpperCase()}] [${n.urgency.toUpperCase()}] ${n.title} (${n.timestamp} @ ${n.location})
+    Author:     ${n.authorCommander} (${n.authorBadge})
+    Directives: ${n.content}
+    ${n.inmateWatchDetails ? `Watch Order: Inmate ${n.inmateWatchDetails.inmateName} (${n.inmateWatchDetails.inmateId}) | Round: ${n.inmateWatchDetails.watchIntervalMinutes} min | ${n.inmateWatchDetails.specialInstructions}` : ''}
+    ${n.behaviorDetails ? `Behavior: ${n.behaviorDetails.behaviorType} | Response: ${n.behaviorDetails.recommendedResponse}` : ''}
+    ${n.maintenanceDetails ? `Maintenance: ${n.maintenanceDetails.trade} | WO: ${n.maintenanceDetails.workOrderRef} | Contractor: ${n.maintenanceDetails.contractorAccessRequired ? 'YES' : 'NO'}` : ''}
+    Visa Status: ${n.isAcknowledgedByIncoming ? `ACKNOWLEDGED by ${n.acknowledgedBy} (${n.acknowledgedAt})` : 'PENDING INCOMING COMMAND VISA'}
+`).join('\n')}
+
+7. DIGITAL SIGN-OFF & COMMAND RATIFICATION
 --------------------------------------------------------------------------------
 Outgoing Commander: ${handover.outgoingSignOff?.commanderName || 'NOT SIGNED'} (${handover.outgoingSignOff?.rank || ''} - ${handover.outgoingSignOff?.badgeNumber || ''})
 Signed At:          ${handover.outgoingSignOff?.signedAt || 'PENDING'}
@@ -126,6 +150,15 @@ Generated via Odoo 19 Corrections Suite
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               <span>{copied ? (language === 'fr' ? 'Copié !' : 'Copied !') : (language === 'fr' ? 'Copier Texte' : 'Copy Text')}</span>
+            </button>
+
+            <button
+              onClick={() => generateHandoverPdf(handover, language)}
+              className="px-3 py-1.5 text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
+              title="Download Formatted PDF Summary"
+            >
+              <Download className="w-4 h-4" />
+              <span>{language === 'fr' ? 'Exporter PDF' : 'Export PDF'}</span>
             </button>
 
             <button
@@ -213,11 +246,52 @@ Generated via Odoo 19 Corrections Suite
             </div>
           </div>
 
-          {/* Section 2: Current Facility Risks */}
+          {/* Section 1.5: Security Staffing & Sentinel Coverage */}
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-300 pb-1 mb-2.5 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-indigo-700" />
+              <span>2. {language === 'fr' ? 'Effectifs de Sécurité & Postes Fixes Obligatoires' : 'Security Sentinel Staffing & Mandatory Fixed Posts'}</span>
+            </h2>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] mb-2">
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <span className="text-slate-500 block">{language === 'fr' ? 'Effectif Déployé' : 'Sentinels Deployed'}</span>
+                <span className="text-sm font-bold text-slate-900">
+                  {handover.personnelSummary?.staffing?.deployedOfficersCount ?? 24}
+                </span>
+                <span className="text-[10px] text-slate-500 block">
+                  Min. Requis: {handover.personnelSummary?.staffing?.minimumRequiredOfficers ?? 22}
+                </span>
+              </div>
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <span className="text-slate-500 block">{language === 'fr' ? 'Postes Fixes Armés' : 'Fixed Posts Manned'}</span>
+                <span className="text-sm font-bold text-emerald-700">
+                  {handover.personnelSummary?.staffing?.fixedPostsMannedCount ?? 14} / {handover.personnelSummary?.staffing?.mandatoryFixedPostsCount ?? 14}
+                </span>
+                <span className="text-[10px] text-emerald-600 block">100% Couverts</span>
+              </div>
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <span className="text-slate-500 block">{language === 'fr' ? 'Réserve QRF Standby' : 'QRF Tactical Standby'}</span>
+                <span className="text-sm font-bold text-rose-700">
+                  {handover.personnelSummary?.staffing?.qrfStandbyCount ?? 4} Gardes
+                </span>
+                <span className="text-[10px] text-slate-500 block">Prêt Alerte 60s</span>
+              </div>
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded">
+                <span className="text-slate-500 block">{language === 'fr' ? 'Conformité Mandela' : 'Safety Compliance'}</span>
+                <span className="text-sm font-bold text-emerald-700 uppercase">
+                  {handover.personnelSummary?.staffing?.safetyStatus ?? 'OPTIMAL'}
+                </span>
+                <span className="text-[10px] text-slate-500 block">Congés: {handover.personnelSummary?.leaveRequests?.filter(r => r.status === 'pending').length ?? 2} en cours</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Current Facility Risks */}
           <div>
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-300 pb-1 mb-2.5 flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
-              <span>2. {language === 'fr' ? 'Risques Établissement & Situations d\'Alerte' : 'Current Facility Risks & Operational Alerts'}</span>
+              <span>3. {language === 'fr' ? 'Risques Établissement & Situations d\'Alerte' : 'Current Facility Risks & Operational Alerts'}</span>
             </h2>
 
             <div className="border border-slate-300 rounded overflow-hidden">
@@ -334,7 +408,10 @@ Generated via Odoo 19 Corrections Suite
                     <tr key={e.id}>
                       <td className="p-2 align-top">
                         <strong className="text-slate-900 block">{e.name}</strong>
-                        <span className="text-slate-500 text-[10px]">{e.storageLocation}</span>
+                        <div className="flex flex-wrap items-center gap-1.5 text-slate-500 text-[10px] mt-0.5">
+                          <span>{e.storageLocation}</span>
+                          {e.sealNumber && <span className="font-mono font-semibold text-indigo-800 bg-indigo-50 px-1 rounded">#{e.sealNumber}</span>}
+                        </div>
                       </td>
                       <td className="p-2 text-center font-mono align-top text-slate-600">
                         {e.expectedQty} {e.unit}
@@ -352,7 +429,13 @@ Generated via Odoo 19 Corrections Suite
                         </span>
                       </td>
                       <td className="p-2 align-top text-slate-600 text-[10px]">
-                        {e.discrepancyNote || '—'}
+                        <div>{e.discrepancyNote || '—'}</div>
+                        {e.verifiedByBoth && (
+                          <div className="text-[9px] text-emerald-700 font-bold mt-0.5 flex items-center gap-1">
+                            <span>✓</span>
+                            <span>{language === 'fr' ? 'Pointé & validé' : 'Dual-command verified'}</span>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -361,11 +444,158 @@ Generated via Odoo 19 Corrections Suite
             </div>
           </div>
 
-          {/* Section 5: Digital Sign-Off Protocol & Ratification */}
+          {/* Section 5: Chronological Shift Operational Event Log */}
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-300 pb-1 mb-2.5 flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5 text-indigo-700" />
+              <span>5. {language === 'fr' ? 'Journal Chronologique des Événements & Incidents du Quart' : 'Chronological Shift Operational Events & Milestone Register'}</span>
+            </h2>
+
+            <div className="border border-slate-300 rounded overflow-hidden">
+              <table className="w-full text-left text-[11px] border-collapse">
+                <thead className="bg-slate-100 border-b border-slate-300 text-slate-700 font-semibold">
+                  <tr>
+                    <th className="p-2 w-16">Heure</th>
+                    <th className="p-2 w-28">Catégorie</th>
+                    <th className="p-2">Événement & Observations</th>
+                    <th className="p-2 w-44">Lieu & Déclarant</th>
+                    <th className="p-2 w-20 text-center">Validation</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {(handover.timelineEvents || INITIAL_TIMELINE_EVENTS).map(ev => (
+                    <tr key={ev.id}>
+                      <td className="p-2 font-mono font-bold align-top text-indigo-900">
+                        {ev.timestamp}
+                      </td>
+                      <td className="p-2 align-top">
+                        <span className={`px-1.5 py-0.5 rounded font-bold text-[9px] uppercase ${
+                          ev.severity === 'critical' ? 'bg-rose-100 text-rose-800' :
+                          ev.severity === 'urgent' ? 'bg-amber-100 text-amber-800' :
+                          ev.severity === 'notable' ? 'bg-blue-100 text-blue-800' :
+                          'bg-slate-100 text-slate-700'
+                        }`}>
+                          {ev.category.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="p-2 align-top">
+                        <strong className="text-slate-900 block">{ev.title}</strong>
+                        <span className="text-slate-600 text-[10px] block mt-0.5">{ev.description}</span>
+                        {ev.actionTaken && (
+                          <span className="text-emerald-700 text-[10px] block mt-0.5 italic">
+                            Mesure: {ev.actionTaken}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2 align-top text-slate-700 text-[10px]">
+                        <div className="font-semibold">{ev.location}</div>
+                        <span className="text-slate-500">{ev.loggedBy} {ev.badgeNumber && `(${ev.badgeNumber})`}</span>
+                      </td>
+                      <td className="p-2 text-center align-top">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          ev.isVerified ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {ev.isVerified ? 'VALIDÉ' : 'EN COURS'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 6: Structured Shift Handover Notes & Watch Directives */}
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-300 pb-1 mb-2.5 flex items-center gap-1.5">
+              <NotebookPen className="w-3.5 h-3.5 text-indigo-700" />
+              <span>6. {language === 'fr' ? 'Consignes & Notes de Relève Structurées (Maintenance, Comportements, Surveillances)' : 'Structured Handover Notes (Maintenance, Behaviors, Inmate Watches)'}</span>
+            </h2>
+
+            <div className="space-y-2">
+              {(handover.handoverNotes || INITIAL_HANDOVER_NOTES).map(n => (
+                <div key={n.id} className="border border-slate-300 rounded p-2.5 bg-slate-50 text-[11px] space-y-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-slate-200 pb-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-1.5 py-0.2 rounded font-bold text-[9px] uppercase ${
+                        n.category === 'inmate_watch' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
+                        n.category === 'maintenance' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                        n.category === 'unusual_behavior' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                        'bg-slate-200 text-slate-800'
+                      }`}>
+                        {n.category.replace('_', ' ')}
+                      </span>
+                      <strong className="text-slate-900">{n.title}</strong>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                      <span>{n.location}</span>
+                      <span>•</span>
+                      <span className="font-mono font-bold text-slate-700">{n.timestamp}</span>
+                      <span>•</span>
+                      <span className={`px-1.5 py-0.2 rounded font-bold uppercase ${
+                        n.urgency === 'critical' ? 'bg-rose-600 text-white' :
+                        n.urgency === 'urgent' ? 'bg-amber-500 text-white' :
+                        'bg-slate-200 text-slate-700'
+                      }`}>
+                        {n.urgency}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-slate-700 leading-relaxed text-[10.5px]">
+                    {n.content}
+                  </p>
+
+                  {/* Specialized details in print */}
+                  {n.inmateWatchDetails && (
+                    <div className="p-1.5 bg-white border border-rose-200 rounded text-[10px] text-rose-950 flex flex-wrap items-center justify-between gap-2">
+                      <span>
+                        <strong>DÉTENU:</strong> {n.inmateWatchDetails.inmateName} ({n.inmateWatchDetails.inmateId}) — {n.inmateWatchDetails.cellLocation}
+                      </span>
+                      <span>
+                        <strong>RÉGIME:</strong> {n.inmateWatchDetails.watchLevel} ({n.inmateWatchDetails.watchIntervalMinutes} min)
+                      </span>
+                      {n.inmateWatchDetails.keepSeparatedFrom && (
+                        <span className="text-purple-800">
+                          <strong>SÉPARATION:</strong> {n.inmateWatchDetails.keepSeparatedFrom.join(', ')}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {n.maintenanceDetails && (
+                    <div className="p-1.5 bg-white border border-amber-200 rounded text-[10px] text-amber-950 flex flex-wrap items-center justify-between gap-2">
+                      <span><strong>OUVRAGE:</strong> {n.maintenanceDetails.equipmentOrAsset}</span>
+                      <span><strong>OT:</strong> {n.maintenanceDetails.workOrderRef}</span>
+                      <span><strong>PRESTATAIRE:</strong> {n.maintenanceDetails.contractorAccessRequired ? `OUI (${n.maintenanceDetails.contractorName || 'Agréé'})` : 'NON (Régie)'}</span>
+                    </div>
+                  )}
+
+                  {n.behaviorDetails && (
+                    <div className="p-1.5 bg-white border border-purple-200 rounded text-[10px] text-purple-950">
+                      <span><strong>ANOMALIE:</strong> {n.behaviorDetails.behaviorType} | <strong>CONDUITE:</strong> {n.behaviorDetails.recommendedResponse}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1 text-[10px] text-slate-500 border-t border-slate-200/60">
+                    <span>Auteur: {n.authorCommander} ({n.authorBadge})</span>
+                    <span className={`font-semibold ${n.isAcknowledgedByIncoming ? 'text-emerald-700' : 'text-amber-700'}`}>
+                      {n.isAcknowledgedByIncoming 
+                        ? `Visa Entrant: Conforme (${n.acknowledgedBy || 'Commandant'} @ ${n.acknowledgedAt || 'Relève'})` 
+                        : 'Visa Entrant: EN ATTENTE DE VISA DE PRISE EN CHARGE'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Section 7: Digital Sign-Off Protocol & Ratification */}
           <div className="border-t-2 border-slate-900 pt-4">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 mb-3 flex items-center gap-1.5">
               <FileCheck className="w-3.5 h-3.5 text-indigo-700" />
-              <span>5. {language === 'fr' ? 'Signatures Numériques & Ratification Réglementaire' : 'Digital Sign-Offs & Regulatory Ratification'}</span>
+              <span>7. {language === 'fr' ? 'Signatures Numériques & Ratification Réglementaire' : 'Digital Sign-Offs & Regulatory Ratification'}</span>
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-[11px]">

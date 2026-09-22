@@ -13,12 +13,25 @@ import {
   RiskSeverity,
   TaskPriority,
   TaskStatus,
-  EquipmentCategory
+  EquipmentCategory,
+  EquipmentCondition
 } from '../../types';
 import { INITIAL_HANDOVER_BRIEFS } from '../../data/handoverData';
 import { SHIFT_CONFIGS } from '../../data/staffDutyData';
 import { SignatureCanvasModal } from './SignatureCanvasModal';
 import { HandoverPrintModal } from './HandoverPrintModal';
+import { ShiftIncidentTrendChart } from './ShiftIncidentTrendChart';
+import { FacilitySectorHeatmap } from './FacilitySectorHeatmap';
+import { DutyOverlapRosterWidget } from './DutyOverlapRosterWidget';
+import { PersonnelTrackingWidget } from './PersonnelTrackingWidget';
+import { ShiftTimelineWidget } from './ShiftTimelineWidget';
+import { ShiftHandoverNotesSection } from './ShiftHandoverNotesSection';
+import { ResourcesInventoryCheckSection } from './ResourcesInventoryCheckSection';
+import { EmergencyAlertModal, EmergencyAlertPayload } from './EmergencyAlertModal';
+import { generateHandoverPdf } from '../../utils/handoverPdfExport';
+import { ShiftTimelineEvent, ShiftHandoverNote } from '../../types';
+import { INITIAL_TIMELINE_EVENTS } from '../../data/timelineData';
+import { INITIAL_HANDOVER_NOTES } from '../../data/handoverNotesData';
 import { 
   Shield, 
   ShieldAlert, 
@@ -46,7 +59,13 @@ import {
   RefreshCw,
   Eye,
   SlidersHorizontal,
-  ChevronDown
+  ChevronDown,
+  Download,
+  Flame,
+  Activity,
+  Layers,
+  Sparkles,
+  NotebookPen
 } from 'lucide-react';
 
 interface ShiftHandoverBriefProps {
@@ -71,7 +90,7 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
   const [activeHandoverId, setActiveHandoverId] = useState<string>(INITIAL_HANDOVER_BRIEFS[0].id);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'risks' | 'tasks' | 'equipment' | 'signoffs'>('risks');
+  const [activeTab, setActiveTab] = useState<'risks' | 'tasks' | 'personnel' | 'timeline' | 'notes' | 'equipment' | 'signoffs'>('risks');
 
   // Filters
   const [filterRiskSeverity, setFilterRiskSeverity] = useState<string>('all');
@@ -86,6 +105,13 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
   const [isAddRiskModalOpen, setIsAddRiskModalOpen] = useState(false);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+
+  // Executive Summary & Widgets State
+  const [isExecutiveSummaryOpen, setIsExecutiveSummaryOpen] = useState(true);
+  const [executiveSummaryTab, setExecutiveSummaryTab] = useState<'all' | 'trend' | 'heatmap' | 'overlap' | 'personnel' | 'timeline' | 'notes' | 'inventory'>('all');
+  const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
+  const [activeEmergencyAlert, setActiveEmergencyAlert] = useState<EmergencyAlertPayload | null>(null);
 
   // New Risk Form State
   const [newRiskData, setNewRiskData] = useState<Partial<FacilityRiskItem>>({
@@ -285,7 +311,9 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
         equipment: h.equipment.map(e => ({
           ...e,
           countedQty: e.expectedQty,
-          verifiedByBoth: true
+          verifiedByBoth: true,
+          lastInspectedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          inspectedBy: h.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'
         }))
       };
     }));
@@ -301,13 +329,100 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
           return {
             ...e,
             countedQty: count,
-            verifiedByBoth: true,
+            verifiedByBoth: count === e.expectedQty,
             discrepancyNote: count !== e.expectedQty ? `Discrepancy: ${count - e.expectedQty} variance logged.` : undefined
           };
         })
       };
     }));
   };
+
+  const handleUpdateEquipmentCondition = (equipmentId: string, condition: EquipmentCondition) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      return {
+        ...h,
+        equipment: h.equipment.map(e => {
+          if (e.id !== equipmentId) return e;
+          return {
+            ...e,
+            condition,
+            discrepancyNote: condition !== 'operational' 
+              ? (e.discrepancyNote || `Condition flagged as ${condition}. Service inspection required.`)
+              : (e.countedQty === e.expectedQty ? undefined : e.discrepancyNote)
+          };
+        })
+      };
+    }));
+  };
+
+  const handleToggleEquipmentVerification = (equipmentId: string) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      return {
+        ...h,
+        equipment: h.equipment.map(e => {
+          if (e.id !== equipmentId) return e;
+          const newVerified = !e.verifiedByBoth;
+          return {
+            ...e,
+            verifiedByBoth: newVerified,
+            lastInspectedAt: newVerified ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : e.lastInspectedAt,
+            inspectedBy: newVerified ? (currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance') : e.inspectedBy,
+          };
+        })
+      };
+    }));
+  };
+
+  const handleAddEquipmentItem = (newItem: EquipmentInventoryItem) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      return {
+        ...h,
+        equipment: [newItem, ...h.equipment]
+      };
+    }));
+  };
+
+  // Critical Resources & Inventory Clearance Memo
+  const inventoryClearance = useMemo(() => {
+    const totalItems = currentHandover.equipment.length;
+    const verifiedItems = currentHandover.equipment.filter(e => e.verifiedByBoth).length;
+    const missingCount = currentHandover.equipment.filter(e => e.condition === 'missing' || e.countedQty < e.expectedQty).length;
+    const variancesCount = currentHandover.equipment.filter(e => e.countedQty !== e.expectedQty || e.condition !== 'operational').length;
+
+    const criticalItems = currentHandover.equipment.filter(e => 
+      e.category === 'keys_security' || 
+      e.category === 'radios_comms' || 
+      e.category === 'restraints_cuffs' ||
+      e.criticality === 'critical'
+    );
+    const criticalVerified = criticalItems.filter(e => e.verifiedByBoth).length;
+    const isCriticalCleared = criticalItems.length > 0 && criticalVerified === criticalItems.length && missingCount === 0;
+
+    const keys = currentHandover.equipment.filter(e => e.category === 'keys_security');
+    const radios = currentHandover.equipment.filter(e => e.category === 'radios_comms');
+    const restraints = currentHandover.equipment.filter(e => e.category === 'restraints_cuffs');
+
+    const keysVerified = keys.length > 0 && keys.every(k => k.verifiedByBoth && k.countedQty === k.expectedQty);
+    const radiosVerified = radios.length > 0 && radios.every(r => r.verifiedByBoth);
+    const restraintsVerified = restraints.length > 0 && restraints.every(r => r.verifiedByBoth);
+
+    return {
+      totalItems,
+      verifiedItems,
+      percentVerified: totalItems > 0 ? Math.round((verifiedItems / totalItems) * 100) : 0,
+      isCriticalCleared,
+      missingCount,
+      variancesCount,
+      criticalTotal: criticalItems.length,
+      criticalVerified,
+      keysVerified,
+      radiosVerified,
+      restraintsVerified,
+    };
+  }, [currentHandover.equipment]);
 
   // Create new handover session
   const handleCreateNewSession = (e: React.FormEvent) => {
@@ -339,6 +454,8 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
       risks: [...currentHandover.risks.map(r => ({ ...r, id: `risk-${Date.now()}-${r.id}`, isAcknowledgedByIncoming: false }))],
       tasks: [...currentHandover.tasks.map(t => ({ ...t, id: `task-${Date.now()}-${t.id}`, status: 'pending' as const }))],
       equipment: [...currentHandover.equipment.map(e => ({ ...e, verifiedByBoth: false }))],
+      timelineEvents: INITIAL_TIMELINE_EVENTS,
+      handoverNotes: INITIAL_HANDOVER_NOTES,
       outgoingSignOff: null,
       incomingSignOff: null,
       governorSignOff: null,
@@ -349,6 +466,117 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
     setHandovers([newSession, ...handovers]);
     setActiveHandoverId(newSession.id);
     setIsNewSessionModalOpen(false);
+  };
+
+  // Add new structured handover note
+  const handleAppendHandoverNote = (newNote: ShiftHandoverNote) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      const currentNotes = h.handoverNotes || INITIAL_HANDOVER_NOTES;
+      return {
+        ...h,
+        handoverNotes: [newNote, ...currentNotes]
+      };
+    }));
+  };
+
+  // Acknowledge single handover note by incoming command
+  const handleAcknowledgeHandoverNote = (noteId: string, acknowledgedBy: string) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      const currentNotes = h.handoverNotes || INITIAL_HANDOVER_NOTES;
+      return {
+        ...h,
+        handoverNotes: currentNotes.map(n => {
+          if (n.id === noteId) {
+            return {
+              ...n,
+              isAcknowledgedByIncoming: true,
+              acknowledgedBy,
+              acknowledgedAt: timeStr,
+            };
+          }
+          return n;
+        })
+      };
+    }));
+  };
+
+  // Acknowledge all pending notes in session
+  const handleAcknowledgeAllHandoverNotes = (acknowledgedBy: string) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      const currentNotes = h.handoverNotes || INITIAL_HANDOVER_NOTES;
+      return {
+        ...h,
+        handoverNotes: currentNotes.map(n => ({
+          ...n,
+          isAcknowledgedByIncoming: true,
+          acknowledgedBy: n.acknowledgedBy || acknowledgedBy,
+          acknowledgedAt: n.acknowledgedAt || timeStr,
+        }))
+      };
+    }));
+  };
+
+  // Add new operational event to timeline
+  const handleCreateTimelineEvent = (newEvent: ShiftTimelineEvent) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      const currentEvents = h.timelineEvents || INITIAL_TIMELINE_EVENTS;
+      return {
+        ...h,
+        timelineEvents: [...currentEvents, newEvent]
+      };
+    }));
+  };
+
+  // Verify operational event on timeline
+  const handleVerifyTimelineEvent = (eventId: string, verifiedBy: string) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      const currentEvents = h.timelineEvents || INITIAL_TIMELINE_EVENTS;
+      return {
+        ...h,
+        timelineEvents: currentEvents.map(ev => {
+          if (ev.id === eventId) {
+            return {
+              ...ev,
+              isVerified: true,
+              verifiedBy,
+              verifiedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+          }
+          return ev;
+        })
+      };
+    }));
+  };
+
+  // Broadcast Tactical Emergency Alert
+  const handleBroadcastAlert = (alertPayload: EmergencyAlertPayload) => {
+    setActiveEmergencyAlert(alertPayload);
+
+    // Create an immediate CRITICAL facility risk entry
+    const newEmergencyRisk: FacilityRiskItem = {
+      id: `risk-emerg-${Date.now()}`,
+      title: `[${alertPayload.code.replace('_', ' ')}] ${alertPayload.title}`,
+      category: 'security_inmate',
+      severity: 'CRITICAL',
+      location: alertPayload.sector,
+      description: `TACTICAL DIRECTIVE: ${alertPayload.directives}`,
+      mitigation: 'Immediate facility lockdown ordered. VHF Ch 1 & 4 active alert acknowledged by shift leads.',
+      reportedBy: alertPayload.author,
+      reportedAt: alertPayload.timestamp,
+      isAcknowledgedByIncoming: false,
+    };
+
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      return { ...h, risks: [newEmergencyRisk, ...h.risks] };
+    }));
   };
 
   // Filtered lists
@@ -393,6 +621,51 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-150">
       
+      {/* Active Tactical Emergency Broadcast Banner */}
+      {activeEmergencyAlert && (
+        <div className="bg-gradient-to-r from-rose-950 via-rose-900 to-red-950 text-white p-4 rounded-xl shadow-xl border-2 border-rose-500 animate-in fade-in slide-in-from-top-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-rose-600 text-white rounded-xl shadow-md animate-pulse">
+              <Flame className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-xs font-black uppercase px-2 py-0.5 bg-black/50 rounded border border-rose-400/50 text-rose-200">
+                  {activeEmergencyAlert.code.replace('_', ' ')}
+                </span>
+                <strong className="text-sm font-black tracking-wide text-white">
+                  {activeEmergencyAlert.title}
+                </strong>
+                <span className="text-[10px] font-bold bg-rose-600 px-2 py-0.5 rounded-full uppercase tracking-wider text-white">
+                  {language === 'fr' ? 'ALERTE ACTIVE' : 'LIVE DISPATCH'}
+                </span>
+              </div>
+              <p className="text-xs text-rose-100 mt-1">
+                <strong>{language === 'fr' ? 'Directive :' : 'Directives :'}</strong> {activeEmergencyAlert.directives}
+              </p>
+              <div className="text-[11px] text-rose-300 mt-1.5 flex flex-wrap items-center gap-3">
+                <span>{language === 'fr' ? 'Secteur :' : 'Sector :'} <strong>{activeEmergencyAlert.sector}</strong></span>
+                <span>&bull;</span>
+                <span>{language === 'fr' ? 'Diffusé à :' : 'Broadcast at :'} <strong className="font-mono">{activeEmergencyAlert.timestamp}</strong></span>
+                <span>&bull;</span>
+                <span className="text-emerald-300 font-bold">
+                  {activeEmergencyAlert.acknowledgedOfficers}/{activeEmergencyAlert.totalOfficers} {language === 'fr' ? 'Postes & Officiers Radio Synchronisés' : 'Watch Leads & QRF Acknowledged'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+            <button
+              onClick={() => setActiveEmergencyAlert(null)}
+              className="px-3.5 py-1.5 bg-black/40 hover:bg-black/60 text-white rounded-lg text-xs font-semibold border border-white/20 transition-colors cursor-pointer"
+            >
+              {language === 'fr' ? 'Acquitter & Clôturer l\'Alerte' : 'Acknowledge & Dismiss'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Breadcrumb & Actions Bar */}
       <div className="bg-slate-900 text-white rounded-xl p-5 shadow-lg border border-slate-800">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -440,6 +713,16 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
           {/* Action Toolbar */}
           <div className="flex flex-wrap items-center gap-2">
             
+            {/* Trigger Emergency Alert Button */}
+            <button
+              onClick={() => setIsEmergencyModalOpen(true)}
+              className="px-3 py-2 bg-gradient-to-r from-rose-600 via-rose-700 to-red-700 hover:from-rose-500 hover:to-red-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md shadow-rose-950/60 transition-all active:scale-95 animate-pulse"
+              title={language === 'fr' ? 'Déclencher une alerte tactique d\'urgence générale' : 'Broadcast immediate tactical emergency alert to security leads'}
+            >
+              <Flame className="w-4 h-4 text-amber-200" />
+              <span>{language === 'fr' ? 'Alerte Urgence Tactique' : 'Trigger Emergency Alert'}</span>
+            </button>
+
             {/* Outgoing Sign Button */}
             {!currentHandover.outgoingSignOff && (
               <button
@@ -482,15 +765,25 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
               </button>
             )}
 
-            {/* Print Official Dossier */}
-            <button
-              onClick={() => setIsPrintModalOpen(true)}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors border border-slate-700"
-              title="Print Official Handover Document"
-            >
-              <Printer className="w-4 h-4" />
-              <span className="hidden sm:inline">{language === 'fr' ? 'Imprimer le P.V.' : 'Print Dossier'}</span>
-            </button>
+            {/* Print / Export Briefing Button */}
+            <div className="inline-flex rounded-lg shadow-sm border border-slate-700 overflow-hidden">
+              <button
+                onClick={() => setIsPrintModalOpen(true)}
+                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors border-r border-slate-700"
+                title={language === 'fr' ? 'Ouvrir l\'aperçu officiel et impression optimisée CSS' : 'Print official shift handover briefing'}
+              >
+                <Printer className="w-4 h-4 text-indigo-400" />
+                <span>{language === 'fr' ? 'Imprimer / Exporter' : 'Print/Export Briefing'}</span>
+              </button>
+              <button
+                onClick={() => generateHandoverPdf(currentHandover, language)}
+                className="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 text-xs font-semibold transition-colors flex items-center gap-1"
+                title={language === 'fr' ? 'Téléchargement direct du PDF officiel' : 'Direct download formatted PDF'}
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="text-[11px] font-bold">PDF</span>
+              </button>
+            </div>
 
             {/* New Session Button */}
             <button
@@ -548,6 +841,226 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
 
       </div>
 
+      {/* Quick Executive Summary Panel */}
+      <div className="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-lg text-white">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-lg bg-indigo-950 text-indigo-400 border border-indigo-700/60 shadow-xs">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm sm:text-base font-bold text-white tracking-wide uppercase">
+                  {language === 'fr' ? 'Synthèse Opérationnelle & Surveillance de Quart' : 'Quick Executive Summary & Tactical Handover Oversight'}
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                  DEFCON 4 &bull; NORMAL
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                {language === 'fr' 
+                  ? 'Visualisation de la fréquence des incidents sur les 7 derniers quarts, matrice thermique des blocs et régulation du chevauchement de garde' 
+                  : 'Incident frequency trend over rolling 7 shifts, facility sector heatmap & risk matrix, and shift overlap roster controls'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View sub-tabs */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('all')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                  executiveSummaryTab === 'all' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {language === 'fr' ? 'Vue Globale' : 'All Widgets'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('trend')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                  executiveSummaryTab === 'trend' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {language === 'fr' ? 'Tendance Incidents' : 'Incident Trend'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('heatmap')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                  executiveSummaryTab === 'heatmap' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {language === 'fr' ? 'Heatmap Blocs' : 'Sector Heatmap'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('overlap')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer ${
+                  executiveSummaryTab === 'overlap' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {language === 'fr' ? 'Chevauchement de Quart' : 'Duty Overlap'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('personnel')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  executiveSummaryTab === 'personnel' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Users className="w-3 h-3 text-indigo-400" />
+                <span>{language === 'fr' ? 'Effectifs Sécurité' : 'Staffing & Sentinels'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('timeline')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  executiveSummaryTab === 'timeline' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <History className="w-3 h-3 text-indigo-400" />
+                <span>{language === 'fr' ? 'Chronologie Événements' : 'Shift Timeline'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('notes')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  executiveSummaryTab === 'notes' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <NotebookPen className="w-3 h-3 text-indigo-400" />
+                <span>{language === 'fr' ? 'Notes Relève' : 'Handover Notes'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('inventory')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  executiveSummaryTab === 'inventory' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Key className="w-3 h-3 text-amber-400" />
+                <span>{language === 'fr' ? 'Inventaire Ressources' : 'Resources & Inventory'}</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsExecutiveSummaryOpen(!isExecutiveSummaryOpen)}
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 border border-slate-800 transition-colors cursor-pointer"
+              title={isExecutiveSummaryOpen ? 'Collapse Executive Summary' : 'Expand Executive Summary'}
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExecutiveSummaryOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Collapsible Content */}
+        {isExecutiveSummaryOpen && (
+          <div className="space-y-4">
+            
+            {/* Incident Trend Chart & Sector Heatmap */}
+            {(executiveSummaryTab === 'all' || executiveSummaryTab === 'trend') && (
+              <div className={executiveSummaryTab === 'all' ? 'grid grid-cols-1 xl:grid-cols-12 gap-4' : 'w-full'}>
+                
+                {/* 7-Shift Trend Chart */}
+                <div className={executiveSummaryTab === 'all' ? 'xl:col-span-6' : 'w-full'}>
+                  <ShiftIncidentTrendChart language={language} />
+                </div>
+
+                {/* Heatmap in grid if 'all' */}
+                {executiveSummaryTab === 'all' && (
+                  <div className="xl:col-span-6">
+                    <FacilitySectorHeatmap 
+                      language={language}
+                      selectedSectorId={selectedSectorId}
+                      onSelectSector={setSelectedSectorId}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Dedicated Heatmap view */}
+            {executiveSummaryTab === 'heatmap' && (
+              <FacilitySectorHeatmap 
+                language={language}
+                selectedSectorId={selectedSectorId}
+                onSelectSector={setSelectedSectorId}
+              />
+            )}
+
+            {/* Dedicated or Included Duty Overlap Widget */}
+            {(executiveSummaryTab === 'all' || executiveSummaryTab === 'overlap') && (
+              <DutyOverlapRosterWidget language={language} />
+            )}
+
+            {/* Staffing & Sentinel Coverage Widget */}
+            {(executiveSummaryTab === 'all' || executiveSummaryTab === 'personnel') && (
+              <PersonnelTrackingWidget 
+                language={language} 
+                currentShift={currentHandover.outgoingShift}
+                compactView={executiveSummaryTab === 'all'}
+              />
+            )}
+
+            {/* Shift Chronological Timeline & Milestone Widget */}
+            {(executiveSummaryTab === 'all' || executiveSummaryTab === 'timeline') && (
+              <ShiftTimelineWidget
+                language={language}
+                currentShift={currentHandover.outgoingShift}
+                facilityName={currentHandover.facilityName}
+                events={currentHandover.timelineEvents || INITIAL_TIMELINE_EVENTS}
+                onAddEvent={handleCreateTimelineEvent}
+                onVerifyEvent={handleVerifyTimelineEvent}
+                compactView={executiveSummaryTab === 'all'}
+              />
+            )}
+
+            {/* Shift Handover Notes (Facility Maintenance, Behaviors, Inmate Watch Instructions) */}
+            {(executiveSummaryTab === 'notes') && (
+              <ShiftHandoverNotesSection
+                language={language}
+                notes={currentHandover.handoverNotes || INITIAL_HANDOVER_NOTES}
+                onAppendNote={handleAppendHandoverNote}
+                onAcknowledgeNote={handleAcknowledgeHandoverNote}
+                onAcknowledgeAllNotes={handleAcknowledgeAllHandoverNotes}
+                outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+                outgoingCommanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+                incomingCommanderName={currentHandover.incomingSignOff?.commanderName || 'Capt. Jonathan Hayes'}
+                incomingCommanderBadge={currentHandover.incomingSignOff?.badgeNumber || 'KP-7890'}
+                inmates={inmates}
+                compactView={true}
+              />
+            )}
+
+            {/* Shift Critical Resources & Equipment Inventory Check Widget */}
+            {(executiveSummaryTab === 'inventory') && (
+              <ResourcesInventoryCheckSection
+                language={language}
+                equipment={currentHandover.equipment}
+                outgoingShift={currentHandover.outgoingShift}
+                incomingShift={currentHandover.incomingShift}
+                outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+                outgoingCommanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+                incomingCommanderName={currentHandover.incomingSignOff?.commanderName || 'Capt. Jonathan Hayes'}
+                incomingCommanderBadge={currentHandover.incomingSignOff?.badgeNumber || 'KP-7890'}
+                onUpdateCount={handleUpdateEquipmentCount}
+                onUpdateCondition={handleUpdateEquipmentCondition}
+                onToggleVerification={handleToggleEquipmentVerification}
+                onVerifyAllMatching={handleVerifyAllEquipment}
+                onAddEquipmentItem={handleAddEquipmentItem}
+                onProceedToSignOff={() => setActiveTab('signoffs')}
+                compactView={true}
+              />
+            )}
+
+          </div>
+        )}
+      </div>
+
       {/* Navigation Tabs */}
       <div className="bg-white rounded-xl border border-slate-200 p-1.5 shadow-sm flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -583,7 +1096,7 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
             }`}
           >
             <Clock className="w-4 h-4" />
-            <span>{language === 'fr' ? 'Tâches & Consignes en Cours' : 'Pending Tasks & Orders'}</span>
+            <span>{language === 'fr' ? 'Tâches & Consignes' : 'Tasks & Orders'}</span>
             <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
               activeTab === 'tasks' ? 'bg-indigo-800 text-indigo-100' : 'bg-indigo-100 text-indigo-800'
             }`}>
@@ -591,27 +1104,86 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
             </span>
           </button>
 
-          {/* Tab: Equipment */}
+          {/* Tab: Personnel Tracking & Staffing */}
+          <button
+            onClick={() => setActiveTab('personnel')}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'personnel'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>{language === 'fr' ? 'Effectifs & Gardes' : 'Staffing & Sentinels'}</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+              {currentHandover.personnelSummary ? `${currentHandover.personnelSummary.staffing.deployedOfficersCount}/${currentHandover.personnelSummary.staffing.minimumRequiredOfficers}` : '24/22'}
+            </span>
+          </button>
+
+          {/* Tab: Shift Timeline */}
+          <button
+            onClick={() => setActiveTab('timeline')}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'timeline'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <History className="w-4 h-4" />
+            <span>{language === 'fr' ? 'Chronologie du Quart' : 'Shift Timeline'}</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              activeTab === 'timeline' ? 'bg-indigo-800 text-indigo-100' : 'bg-indigo-100 text-indigo-800'
+            }`}>
+              {(currentHandover.timelineEvents || INITIAL_TIMELINE_EVENTS).length}
+            </span>
+          </button>
+
+          {/* Tab: Shift Handover Notes */}
+          <button
+            onClick={() => setActiveTab('notes')}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'notes'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <NotebookPen className="w-4 h-4" />
+            <span>{language === 'fr' ? 'Consignes & Notes de Relève' : 'Shift Handover Notes'}</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              activeTab === 'notes' ? 'bg-indigo-800 text-indigo-100' : 'bg-indigo-100 text-indigo-800'
+            }`}>
+              {(currentHandover.handoverNotes || INITIAL_HANDOVER_NOTES).length}
+            </span>
+            {(currentHandover.handoverNotes || INITIAL_HANDOVER_NOTES).some(n => !n.isAcknowledgedByIncoming) && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="Notes en attente de visa" />
+            )}
+          </button>
+
+          {/* Tab: Resources & Inventory Check */}
           <button
             onClick={() => setActiveTab('equipment')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'equipment'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Key className="w-4 h-4" />
-            <span>{language === 'fr' ? 'Inventaire Clés & Armurerie' : 'Equipment & Armory Inventory'}</span>
+            <Key className="w-4 h-4 text-amber-400" />
+            <span>{language === 'fr' ? 'Ressources & Inventaire' : 'Resources & Inventory Check'}</span>
             <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-              activeTab === 'equipment' ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-800'
+              inventoryClearance.isCriticalCleared 
+                ? 'bg-emerald-100 text-emerald-800' 
+                : 'bg-amber-100 text-amber-800'
             }`}>
-              {currentHandover.equipment.length}
+              {inventoryClearance.verifiedItems}/{inventoryClearance.totalItems}
             </span>
-            {equipmentDiscrepanciesCount > 0 && (
+            {inventoryClearance.isCriticalCleared ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            ) : inventoryClearance.variancesCount > 0 ? (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-100 text-rose-800">
-                {equipmentDiscrepanciesCount} {language === 'fr' ? 'écart' : 'alert'}
+                {inventoryClearance.variancesCount} {language === 'fr' ? 'écart(s)' : 'variance(s)'}
               </span>
-            )}
+            ) : null}
           </button>
 
           {/* Tab: Sign-Offs */}
@@ -863,127 +1435,62 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
         </div>
       )}
 
-      {/* TAB CONTENT 3: EQUIPMENT & ARMORY INVENTORY */}
+      {/* TAB CONTENT 2.5: PERSONNEL TRACKING & SAFETY STAFFING */}
+      {activeTab === 'personnel' && (
+        <PersonnelTrackingWidget
+          language={language}
+          currentShift={currentHandover.outgoingShift}
+          facilityName={currentHandover.facilityName}
+        />
+      )}
+
+      {/* TAB CONTENT 2.7: CHRONOLOGICAL SHIFT TIMELINE & EVENT LOG */}
+      {activeTab === 'timeline' && (
+        <ShiftTimelineWidget
+          language={language}
+          currentShift={currentHandover.outgoingShift}
+          facilityName={currentHandover.facilityName}
+          events={currentHandover.timelineEvents || INITIAL_TIMELINE_EVENTS}
+          onAddEvent={handleCreateTimelineEvent}
+          onVerifyEvent={handleVerifyTimelineEvent}
+        />
+      )}
+
+      {/* TAB CONTENT 2.8: STRUCTURED SHIFT HANDOVER NOTES & DIRECTIVES */}
+      {activeTab === 'notes' && (
+        <ShiftHandoverNotesSection
+          language={language}
+          notes={currentHandover.handoverNotes || INITIAL_HANDOVER_NOTES}
+          onAppendNote={handleAppendHandoverNote}
+          onAcknowledgeNote={handleAcknowledgeHandoverNote}
+          onAcknowledgeAllNotes={handleAcknowledgeAllHandoverNotes}
+          outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+          outgoingCommanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+          incomingCommanderName={currentHandover.incomingSignOff?.commanderName || 'Capt. Jonathan Hayes'}
+          incomingCommanderBadge={currentHandover.incomingSignOff?.badgeNumber || 'KP-7890'}
+          inmates={inmates}
+        />
+      )}
+
+      {/* TAB CONTENT 3: RESOURCES & INVENTORY CHECK */}
       {activeTab === 'equipment' && (
-        <div className="space-y-4">
-          
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Key className="w-4 h-4 text-amber-600" />
-                <span>{language === 'fr' ? 'Inventaire Conjoint des Clés Maîtresses, Armements & Matériels' : 'Joint Armory Munitions, Master Keys & Protective Gear Audit'}</span>
-              </h2>
-              <p className="text-xs text-slate-500">
-                {language === 'fr' 
-                  ? 'Vérification physique contradictoire obligatoire à chaque changement de quart.' 
-                  : 'Mandatory joint dual-commander physical count before assuming custodial command.'}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={filterEquipmentCategory}
-                onChange={e => setFilterEquipmentCategory(e.target.value)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700"
-              >
-                <option value="all">{language === 'fr' ? 'Toutes les catégories' : 'All Categories'}</option>
-                <option value="keys_security">{language === 'fr' ? 'Clés de sécurité' : 'Security Keys'}</option>
-                <option value="armory_firearms">{language === 'fr' ? 'Armes & Munitions' : 'Armory & Munitions'}</option>
-                <option value="tactical_protection">{language === 'fr' ? 'Protection & Anti-Émeute' : 'Tactical & Riot Gear'}</option>
-                <option value="radios_comms">{language === 'fr' ? 'Radios UHF & Batteries' : 'Radios & Comms'}</option>
-                <option value="body_cameras">{language === 'fr' ? 'Caméras Piéton Axon' : 'Body Cameras'}</option>
-                <option value="restraints_cuffs">{language === 'fr' ? 'Menottes & Fers' : 'Restraints & Cuffs'}</option>
-              </select>
-
-              <button
-                onClick={handleVerifyAllEquipment}
-                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all"
-                title="Mark all counted quantities as reconciled"
-              >
-                <Check className="w-4 h-4 text-emerald-400" />
-                <span>{language === 'fr' ? 'Valider Tout Conforme' : 'Verify All Match'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Equipment Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                  <tr>
-                    <th className="p-3">{language === 'fr' ? 'Désignation du Matériel' : 'Equipment Name & Storage'}</th>
-                    <th className="p-3 w-28 text-center">{language === 'fr' ? 'Attendu' : 'Expected'}</th>
-                    <th className="p-3 w-32 text-center">{language === 'fr' ? 'Compté' : 'Counted'}</th>
-                    <th className="p-3 w-28">{language === 'fr' ? 'État' : 'Condition'}</th>
-                    <th className="p-3">{language === 'fr' ? 'Observations & Écarts' : 'Discrepancy Notes'}</th>
-                    <th className="p-3 w-24 text-center">{language === 'fr' ? 'Vérifié' : 'Status'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredEquipment.map(item => {
-                    const hasDiscrepancy = item.countedQty !== item.expectedQty || item.condition !== 'operational';
-
-                    return (
-                      <tr key={item.id} className={`hover:bg-slate-50/80 transition-colors ${hasDiscrepancy ? 'bg-amber-50/30' : ''}`}>
-                        <td className="p-3">
-                          <strong className="text-slate-900 block">{item.name}</strong>
-                          <span className="text-slate-500 text-[11px] block mt-0.5">
-                            {item.storageLocation}
-                          </span>
-                        </td>
-                        <td className="p-3 text-center font-mono text-slate-600">
-                          {item.expectedQty} {item.unit}
-                        </td>
-                        <td className="p-3 text-center">
-                          <div className="inline-flex items-center gap-1.5">
-                            <input
-                              type="number"
-                              min="0"
-                              value={item.countedQty}
-                              onChange={e => handleUpdateEquipmentCount(item.id, parseInt(e.target.value) || 0)}
-                              className={`w-16 p-1 text-center font-mono font-bold rounded border text-xs ${
-                                item.countedQty !== item.expectedQty 
-                                  ? 'border-rose-400 bg-rose-50 text-rose-900' 
-                                  : 'border-slate-300 bg-white text-slate-900'
-                              }`}
-                            />
-                            <span className="text-[10px] text-slate-500">{item.unit}</span>
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            item.condition === 'operational' ? 'bg-emerald-100 text-emerald-800' :
-                            item.condition === 'maintenance' ? 'bg-amber-100 text-amber-800' :
-                            'bg-rose-100 text-rose-800'
-                          }`}>
-                            {item.condition}
-                          </span>
-                        </td>
-                        <td className="p-3 text-slate-600 text-[11px]">
-                          {item.discrepancyNote || (language === 'fr' ? 'Conforme, aucune anomalie' : 'Operational, zero variance')}
-                        </td>
-                        <td className="p-3 text-center">
-                          {item.verifiedByBoth ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>{language === 'fr' ? 'OK' : 'Verified'}</span>
-                            </span>
-                          ) : (
-                            <span className="text-[11px] text-slate-400">
-                              {language === 'fr' ? 'À pointer' : 'Pending'}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-        </div>
+        <ResourcesInventoryCheckSection
+          language={language}
+          equipment={currentHandover.equipment}
+          outgoingShift={currentHandover.outgoingShift}
+          incomingShift={currentHandover.incomingShift}
+          outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+          outgoingCommanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+          incomingCommanderName={currentHandover.incomingSignOff?.commanderName || 'Capt. Jonathan Hayes'}
+          incomingCommanderBadge={currentHandover.incomingSignOff?.badgeNumber || 'KP-7890'}
+          onUpdateCount={handleUpdateEquipmentCount}
+          onUpdateCondition={handleUpdateEquipmentCondition}
+          onToggleVerification={handleToggleEquipmentVerification}
+          onVerifyAllMatching={handleVerifyAllEquipment}
+          onAddEquipmentItem={handleAddEquipmentItem}
+          onProceedToSignOff={() => setActiveTab('signoffs')}
+          compactView={false}
+        />
       )}
 
       {/* TAB CONTENT 4: SIGN-OFFS & RATIFICATION */}
@@ -997,9 +1504,57 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
             </h2>
             <p className="text-xs text-slate-500 mt-1">
               {language === 'fr'
-                ? 'Conformément aux directives pénitentiaires, la responsabilité légale de la garde est officiellement transférée après signature mutuelle.'
-                : 'Pursuant to national corrections standing orders, legal command transfer takes effect upon mutual digital sign-off.'}
+                ? 'Conformément aux directives pénitentiaires, la responsabilité légale de la garde est officiellement transférée après vérification contradictoire des matériels et signature mutuelle.'
+                : 'Pursuant to national corrections standing orders, legal command transfer takes effect upon joint resources verification and mutual digital sign-off.'}
             </p>
+          </div>
+
+          {/* Pre-Sign-Off Critical Security Equipment Clearance Protocol Banner */}
+          <div className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+            inventoryClearance.isCriticalCleared
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
+              : 'bg-amber-50 border-amber-300 text-amber-950'
+          }`}>
+            <div className="flex items-start gap-3">
+              <div className={`p-2 rounded-lg shrink-0 ${
+                inventoryClearance.isCriticalCleared ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'
+              }`}>
+                {inventoryClearance.isCriticalCleared ? <ShieldCheck className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <strong className="text-xs font-bold uppercase tracking-wider">
+                    {inventoryClearance.isCriticalCleared
+                      ? (language === 'fr' ? 'Contrôle des Équipements Validé : Autorisation de Signature Donnée' : 'Security Inventory Verified: Ready for Command Sign-Off')
+                      : (language === 'fr' ? 'Contrôle Préalable Obligatoire : Clés, Radios & Entraves' : 'Mandatory Pre-Sign-Off Resources Audit Incomplete')}
+                  </strong>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    inventoryClearance.isCriticalCleared ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-900'
+                  }`}>
+                    {inventoryClearance.verifiedItems}/{inventoryClearance.totalItems} {language === 'fr' ? 'matériels pointés' : 'items checked'} ({inventoryClearance.percentVerified}%)
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {inventoryClearance.isCriticalCleared
+                    ? (language === 'fr'
+                        ? 'Toutes les clés maîtresses, trousseaux scellés, postes UHF et matériels d\'entrave ont été certifiés conformes par les commandants de quart.'
+                        : 'Dual command inspection has verified 100% of master keys, encrypted tactical radios, and restraint gear. Digital certification is unlocked.')
+                    : (language === 'fr'
+                        ? `Il reste ${inventoryClearance.criticalTotal - inventoryClearance.criticalVerified} équipement(s) critique(s) ou écarts à pointer avant de signer la décharge officielle.`
+                        : `${inventoryClearance.criticalTotal - inventoryClearance.criticalVerified} critical equipment items or variances require physical verification before signing.`)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+              <button
+                onClick={() => setActiveTab('equipment')}
+                className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+              >
+                <Key className="w-3.5 h-3.5 text-amber-600" />
+                <span>{language === 'fr' ? 'Ouvrir l\'Inventaire des Ressources' : 'Open Resources Check'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Three Column Sign-Off Stages */}
@@ -1209,6 +1764,7 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
         signType={signatureType}
         shift={signatureType === 'outgoing' ? currentHandover.outgoingShift : currentHandover.incomingShift}
         language={language}
+        inventoryClearance={inventoryClearance}
       />
 
       {/* MODAL: PRINT DOSSIER */}
@@ -1556,6 +2112,14 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
           </div>
         </div>
       )}
+
+      {/* Tactical Emergency Alert Trigger Modal */}
+      <EmergencyAlertModal
+        isOpen={isEmergencyModalOpen}
+        onClose={() => setIsEmergencyModalOpen(false)}
+        language={language}
+        onBroadcast={handleBroadcastAlert}
+      />
 
     </div>
   );

@@ -1,4 +1,6 @@
 import { ShiftHandoverBriefData, FacilityRiskItem, PendingTaskItem, EquipmentInventoryItem } from '../types';
+import { INITIAL_TIMELINE_EVENTS } from './timelineData';
+import { INITIAL_HANDOVER_NOTES } from './handoverNotesData';
 
 export const INITIAL_FACILITY_RISKS: FacilityRiskItem[] = [
   {
@@ -149,7 +151,7 @@ export const INITIAL_PENDING_TASKS: PendingTaskItem[] = [
 ];
 
 export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
-  // 1. MASTER & CELL KEYS
+  // 1. MASTER & CELL KEYS (CRITICAL)
   {
     id: 'eq-01',
     category: 'keys_security',
@@ -160,6 +162,11 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Central Control Vault #K-01',
     verifiedByBoth: true,
+    criticality: 'critical',
+    sealNumber: 'SEAL-VAULT-8801',
+    lastInspectedAt: '13:45',
+    inspectedBy: 'Capt. Marcus Vance',
+    serialNumbers: ['MKR-01', 'MKR-02', 'MKR-03', 'MKR-04'],
   },
   {
     id: 'eq-02',
@@ -171,6 +178,11 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Block A Guard Station Key Safe',
     verifiedByBoth: true,
+    criticality: 'critical',
+    sealNumber: 'SEAL-BLKA-102',
+    lastInspectedAt: '13:50',
+    inspectedBy: 'Capt. Marcus Vance',
+    serialNumbers: ['BA-KEY-01', 'BA-KEY-02', 'BA-KEY-03', 'BA-KEY-04', 'BA-KEY-05', 'BA-KEY-06', 'BA-KEY-07', 'BA-KEY-08'],
   },
   {
     id: 'eq-03',
@@ -182,6 +194,10 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Armory Lockbox B',
     verifiedByBoth: true,
+    criticality: 'critical',
+    sealNumber: 'SEAL-SOL-09',
+    lastInspectedAt: '13:40',
+    inspectedBy: 'Capt. Marcus Vance',
   },
   {
     id: 'eq-04',
@@ -193,9 +209,13 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Gatehouse Sluice Control Safe',
     verifiedByBoth: true,
+    criticality: 'critical',
+    sealNumber: 'SEAL-GATE-01',
+    lastInspectedAt: '13:30',
+    inspectedBy: 'Capt. Marcus Vance',
   },
 
-  // 2. ARMORY & FIREARMS
+  // 2. ARMORY & FIREARMS (CRITICAL)
   {
     id: 'eq-05',
     category: 'armory_firearms',
@@ -206,6 +226,10 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Central Armory Rack 1',
     verifiedByBoth: true,
+    criticality: 'critical',
+    sealNumber: 'ARM-RACK-01',
+    lastInspectedAt: '13:42',
+    inspectedBy: 'Armorer Sgt. Otieno',
   },
   {
     id: 'eq-06',
@@ -217,6 +241,10 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Armory Munitions Safe A',
     verifiedByBoth: true,
+    criticality: 'critical',
+    sealNumber: 'AMMO-SEAL-600',
+    lastInspectedAt: '13:42',
+    inspectedBy: 'Armorer Sgt. Otieno',
   },
   {
     id: 'eq-07',
@@ -228,6 +256,10 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Armory Rack 3',
     verifiedByBoth: true,
+    criticality: 'critical',
+    sealNumber: 'ARM-RACK-03',
+    lastInspectedAt: '13:44',
+    inspectedBy: 'Armorer Sgt. Otieno',
   },
   {
     id: 'eq-08',
@@ -239,6 +271,10 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Armory Munitions Safe B',
     verifiedByBoth: true,
+    criticality: 'critical',
+    sealNumber: 'AMMO-SEAL-120',
+    lastInspectedAt: '13:44',
+    inspectedBy: 'Armorer Sgt. Otieno',
   },
   {
     id: 'eq-09',
@@ -250,6 +286,9 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Tactical Cabinet 2',
     verifiedByBoth: true,
+    criticality: 'high',
+    lastInspectedAt: '13:46',
+    inspectedBy: 'Capt. Marcus Vance',
   },
 
   // 3. TACTICAL & RIOT GEAR
@@ -263,6 +302,9 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Standby Ready Room',
     verifiedByBoth: true,
+    criticality: 'high',
+    lastInspectedAt: '13:20',
+    inspectedBy: 'Capt. Marcus Vance',
   },
   {
     id: 'eq-11',
@@ -275,6 +317,9 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     storageLocation: 'Standby Ready Room',
     discrepancyNote: 'Helmet #H-09 sent to logistics workshop for replacement chinstrap rivet.',
     verifiedByBoth: true,
+    criticality: 'high',
+    lastInspectedAt: '13:20',
+    inspectedBy: 'Capt. Marcus Vance',
   },
   {
     id: 'eq-12',
@@ -286,9 +331,12 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Guard Muster Locker',
     verifiedByBoth: true,
+    criticality: 'standard',
+    lastInspectedAt: '13:15',
+    inspectedBy: 'Duty Officer',
   },
 
-  // 4. RADIOS & COMMS
+  // 4. RADIOS & COMMS (CRITICAL)
   {
     id: 'eq-13',
     category: 'radios_comms',
@@ -299,6 +347,11 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Central Charging Dock - Station 1',
     verifiedByBoth: true,
+    criticality: 'critical',
+    batteryLevel: 98,
+    lastInspectedAt: '13:52',
+    inspectedBy: 'Comms Officer Cpl. Kamau',
+    serialNumbers: ['MOT-01', 'MOT-02', 'MOT-03', 'MOT-04', 'MOT-05', 'MOT-06', 'MOT-07', 'MOT-08', 'MOT-09', 'MOT-10', 'MOT-11', 'MOT-12', 'MOT-13', 'MOT-14', 'MOT-15', 'MOT-16', 'MOT-17', 'MOT-18'],
   },
   {
     id: 'eq-14',
@@ -310,6 +363,10 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Central Charging Dock - Station 2',
     verifiedByBoth: true,
+    criticality: 'critical',
+    batteryLevel: 100,
+    lastInspectedAt: '13:52',
+    inspectedBy: 'Comms Officer Cpl. Kamau',
   },
 
   // 5. BODY-WORN CAMERAS
@@ -323,9 +380,14 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Axon Evidence Dock A',
     verifiedByBoth: true,
+    criticality: 'high',
+    batteryLevel: 95,
+    lastInspectedAt: '13:35',
+    inspectedBy: 'Capt. Marcus Vance',
+    serialNumbers: ['AX-301', 'AX-302', 'AX-303', 'AX-304', 'AX-305', 'AX-306', 'AX-307', 'AX-308', 'AX-309', 'AX-310', 'AX-311', 'AX-312'],
   },
 
-  // 6. MECHANICAL RESTRAINTS
+  // 6. MECHANICAL RESTRAINTS (CRITICAL)
   {
     id: 'eq-16',
     category: 'restraints_cuffs',
@@ -336,6 +398,10 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Guard Assembly Room Drawer 1',
     verifiedByBoth: true,
+    criticality: 'critical',
+    lastInspectedAt: '13:48',
+    inspectedBy: 'Capt. Marcus Vance',
+    discrepancyNote: 'All 30 pairs mechanism tested & lubricated. Double-lock keys present.',
   },
   {
     id: 'eq-17',
@@ -347,6 +413,9 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Convoy Staging Lockbox',
     verifiedByBoth: true,
+    criticality: 'critical',
+    lastInspectedAt: '13:48',
+    inspectedBy: 'Capt. Marcus Vance',
   },
   {
     id: 'eq-18',
@@ -358,6 +427,9 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     condition: 'operational',
     storageLocation: 'Convoy Staging Lockbox',
     verifiedByBoth: true,
+    criticality: 'critical',
+    lastInspectedAt: '13:48',
+    inspectedBy: 'Capt. Marcus Vance',
   }
 ];
 
@@ -385,6 +457,8 @@ export const INITIAL_HANDOVER_BRIEFS: ShiftHandoverBriefData[] = [
     risks: INITIAL_FACILITY_RISKS,
     tasks: INITIAL_PENDING_TASKS,
     equipment: INITIAL_EQUIPMENT_INVENTORY,
+    timelineEvents: INITIAL_TIMELINE_EVENTS,
+    handoverNotes: INITIAL_HANDOVER_NOTES,
     outgoingSignOff: {
       commanderId: 'off-101',
       commanderName: 'Capt. Marcus Vance',
@@ -426,6 +500,7 @@ export const INITIAL_HANDOVER_BRIEFS: ShiftHandoverBriefData[] = [
     risks: INITIAL_FACILITY_RISKS.slice(0, 3),
     tasks: INITIAL_PENDING_TASKS.slice(0, 3).map(t => ({ ...t, status: 'completed' as const })),
     equipment: INITIAL_EQUIPMENT_INVENTORY,
+    handoverNotes: INITIAL_HANDOVER_NOTES.slice(0, 4),
     outgoingSignOff: {
       commanderId: 'off-108',
       commanderName: 'Insp. Sarah Aling\'o',
