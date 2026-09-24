@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Language, 
   UserRole, 
@@ -14,9 +14,13 @@ import {
   TaskPriority,
   TaskStatus,
   EquipmentCategory,
-  EquipmentCondition
+  EquipmentCondition,
+  ContrabandItem,
+  ContrabandSeverity,
+  ContrabandDisposalStatus
 } from '../../types';
 import { INITIAL_HANDOVER_BRIEFS } from '../../data/handoverData';
+import { INITIAL_CONTRABAND_ITEMS } from '../../data/contrabandData';
 import { SHIFT_CONFIGS } from '../../data/staffDutyData';
 import { SignatureCanvasModal } from './SignatureCanvasModal';
 import { HandoverPrintModal } from './HandoverPrintModal';
@@ -26,12 +30,23 @@ import { DutyOverlapRosterWidget } from './DutyOverlapRosterWidget';
 import { PersonnelTrackingWidget } from './PersonnelTrackingWidget';
 import { ShiftTimelineWidget } from './ShiftTimelineWidget';
 import { ShiftHandoverNotesSection } from './ShiftHandoverNotesSection';
+import { HandoverVoiceDictationWidget } from './HandoverVoiceDictationWidget';
 import { ResourcesInventoryCheckSection } from './ResourcesInventoryCheckSection';
+import { ContrabandSeizedTable } from './ContrabandSeizedTable';
+import { Contraband30DayTrendChart } from './Contraband30DayTrendChart';
+import { ShiftExecutiveSummarySection } from './ShiftExecutiveSummarySection';
 import { EmergencyAlertModal, EmergencyAlertPayload } from './EmergencyAlertModal';
+import { CurrentWeatherVisibilityWidget } from './CurrentWeatherVisibilityWidget';
+import { SecurityIncidentAuditWidget } from './SecurityIncidentAuditWidget';
+import { OfficerBiometricCheckInWidget } from './OfficerBiometricCheckInWidget';
+import { ShiftCommunicationsSidebar } from './ShiftCommunicationsSidebar';
 import { generateHandoverPdf } from '../../utils/handoverPdfExport';
-import { ShiftTimelineEvent, ShiftHandoverNote } from '../../types';
+import { createAuditEntry, createInitialAuditTrail } from '../../utils/securityAuditLogger';
+import { ShiftTimelineEvent, ShiftHandoverNote, SecurityAuditActionCategory, SecurityAuditSeverity, BiometricCheckInRecord } from '../../types';
 import { INITIAL_TIMELINE_EVENTS } from '../../data/timelineData';
 import { INITIAL_HANDOVER_NOTES } from '../../data/handoverNotesData';
+import { INITIAL_SECURITY_OFFICERS } from '../../data/personnelData';
+import { INITIAL_BIOMETRIC_CHECKINS } from '../../data/biometricAttendanceData';
 import { 
   Shield, 
   ShieldAlert, 
@@ -65,7 +80,20 @@ import {
   Activity,
   Layers,
   Sparkles,
-  NotebookPen
+  NotebookPen,
+  Mic,
+  Save,
+  Wifi,
+  WifiOff,
+  Bell,
+  BellRing,
+  Database,
+  HardDrive,
+  QrCode,
+  CloudFog,
+  CloudSun,
+  FileLock2,
+  Fingerprint
 } from 'lucide-react';
 
 interface ShiftHandoverBriefProps {
@@ -90,7 +118,10 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
   const [activeHandoverId, setActiveHandoverId] = useState<string>(INITIAL_HANDOVER_BRIEFS[0].id);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'risks' | 'tasks' | 'personnel' | 'timeline' | 'notes' | 'equipment' | 'signoffs'>('risks');
+  const [activeTab, setActiveTab] = useState<'risks' | 'tasks' | 'personnel' | 'timeline' | 'notes' | 'equipment' | 'contraband' | 'signoffs' | 'audit' | 'biometrics' | 'comms'>('risks');
+
+  // Chat Sidebar Drawer State
+  const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
 
   // Filters
   const [filterRiskSeverity, setFilterRiskSeverity] = useState<string>('all');
@@ -106,10 +137,11 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+  const [isVoiceDictationModalOpen, setIsVoiceDictationModalOpen] = useState(false);
 
   // Executive Summary & Widgets State
   const [isExecutiveSummaryOpen, setIsExecutiveSummaryOpen] = useState(true);
-  const [executiveSummaryTab, setExecutiveSummaryTab] = useState<'all' | 'trend' | 'heatmap' | 'overlap' | 'personnel' | 'timeline' | 'notes' | 'inventory'>('all');
+  const [executiveSummaryTab, setExecutiveSummaryTab] = useState<'all' | 'ai_summary' | 'weather' | 'audit' | 'biometrics' | 'comms' | 'trend' | 'heatmap' | 'overlap' | 'personnel' | 'timeline' | 'notes' | 'inventory' | 'contraband' | 'voice'>('all');
   const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
   const [activeEmergencyAlert, setActiveEmergencyAlert] = useState<EmergencyAlertPayload | null>(null);
 
@@ -141,10 +173,169 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
   const [newSessionOutgoingShift, setNewSessionOutgoingShift] = useState<ShiftType>('morning');
   const [newSessionIncomingShift, setNewSessionIncomingShift] = useState<ShiftType>('afternoon');
 
+  // Local Storage Cache Sync Service State
+  const STORAGE_KEY_HANDOVER_DRAFT = 'PRISON_HANDOVER_DRAFT_CACHE_v2';
+  const [isOnline, setIsOnline] = useState<boolean>(typeof window !== 'undefined' ? window.navigator.onLine : true);
+  const [lastCacheSavedAt, setLastCacheSavedAt] = useState<string | null>(null);
+  const [isRestoredFromCache, setIsRestoredFromCache] = useState<boolean>(false);
+  const [cacheSyncToast, setCacheSyncToast] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
+  const [isManualSyncing, setIsManualSyncing] = useState<boolean>(false);
+
+  // Automated Inventory Shortage Alert System State
+  const [isShortageToastDismissed, setIsShortageToastDismissed] = useState<boolean>(false);
+  const [shortageSnoozeUntil, setShortageSnoozeUntil] = useState<number | null>(null);
+
   // Current active handover object
   const currentHandover = useMemo(() => {
     return handovers.find(h => h.id === activeHandoverId) || handovers[0];
   }, [handovers, activeHandoverId]);
+
+  // Restore draft from local storage on initial mount
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY_HANDOVER_DRAFT);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && Array.isArray(parsed.handovers) && parsed.handovers.length > 0) {
+          setHandovers(parsed.handovers);
+          if (parsed.activeHandoverId) {
+            setActiveHandoverId(parsed.activeHandoverId);
+          }
+          setIsRestoredFromCache(true);
+          const savedTime = parsed.savedAt ? new Date(parsed.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : new Date().toLocaleTimeString();
+          setLastCacheSavedAt(savedTime);
+          setCacheSyncToast({
+            message: language === 'fr' 
+              ? `Brouillon de passation restauré depuis le cache local (${savedTime})` 
+              : `Handover draft restored from local browser cache (${savedTime})`,
+            type: 'info'
+          });
+          setTimeout(() => setCacheSyncToast(null), 4000);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not read cached draft handover from localStorage:', err);
+    }
+  }, []);
+
+  // Continuous debounced local storage save
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const now = new Date();
+        const payload = {
+          handovers,
+          activeHandoverId,
+          savedAt: now.toISOString(),
+        };
+        localStorage.setItem(STORAGE_KEY_HANDOVER_DRAFT, JSON.stringify(payload));
+        setLastCacheSavedAt(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      } catch (err) {
+        console.warn('Failed to save handover draft to localStorage:', err);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [handovers, activeHandoverId]);
+
+  // Online / Offline network listeners
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setCacheSyncToast({
+        message: language === 'fr' 
+          ? 'Connexion réseau rétablie — Synchronisation continue activée' 
+          : 'Network connection restored — Continuous sync online',
+        type: 'success'
+      });
+      setTimeout(() => setCacheSyncToast(null), 3500);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setCacheSyncToast({
+        message: language === 'fr' 
+          ? 'Interruption réseau détectée — Mode hors-ligne actif (sauvegarde cache locale)' 
+          : 'Network interruption detected — Offline mode active (saving to browser cache)',
+        type: 'warning'
+      });
+      setTimeout(() => setCacheSyncToast(null), 5000);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [language]);
+
+  // Manual Force Sync to Local Storage
+  const handleForceManualSync = () => {
+    setIsManualSyncing(true);
+    try {
+      const now = new Date();
+      const payload = {
+        handovers,
+        activeHandoverId,
+        savedAt: now.toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY_HANDOVER_DRAFT, JSON.stringify(payload));
+      const formatted = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setLastCacheSavedAt(formatted);
+      setCacheSyncToast({
+        message: language === 'fr' 
+          ? `Brouillon de passation synchronisé avec succès dans le cache (${formatted})` 
+          : `Handover draft successfully synchronized to browser cache (${formatted})`,
+        type: 'success'
+      });
+      setTimeout(() => setCacheSyncToast(null), 3000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setTimeout(() => setIsManualSyncing(false), 400);
+    }
+  };
+
+  // Reset Draft Cache
+  const handleClearCache = () => {
+    if (confirm(language === 'fr' ? 'Réinitialiser le cache local et rétablir les données d\'origine ?' : 'Clear browser draft cache and restore initial brief data?')) {
+      try {
+        localStorage.removeItem(STORAGE_KEY_HANDOVER_DRAFT);
+        setHandovers(INITIAL_HANDOVER_BRIEFS);
+        setActiveHandoverId(INITIAL_HANDOVER_BRIEFS[0].id);
+        setIsRestoredFromCache(false);
+        setLastCacheSavedAt(null);
+        setCacheSyncToast({
+          message: language === 'fr' ? 'Cache réinitialisé' : 'Draft cache cleared',
+          type: 'info'
+        });
+        setTimeout(() => setCacheSyncToast(null), 3000);
+      } catch (err) {
+        console.warn(err);
+      }
+    }
+  };
+
+  // Inventory Critical Shortages calculation
+  const criticalInventoryShortages = useMemo(() => {
+    if (!currentHandover?.equipment) return [];
+    return currentHandover.equipment.filter(e => {
+      const isShort = e.countedQty < e.expectedQty;
+      const isDamaged = e.condition === 'damaged' || e.condition === 'missing' || e.condition === 'defective';
+      return isShort || isDamaged;
+    });
+  }, [currentHandover?.equipment]);
+
+  const isShortageToastVisible = useMemo(() => {
+    if (criticalInventoryShortages.length === 0) return false;
+    if (isShortageToastDismissed) return false;
+    if (shortageSnoozeUntil && Date.now() < shortageSnoozeUntil) return false;
+    return true;
+  }, [criticalInventoryShortages.length, isShortageToastDismissed, shortageSnoozeUntil]);
+
+  const handleSnoozeShortageToast = () => {
+    setShortageSnoozeUntil(Date.now() + 5 * 60 * 1000); // 5 minutes snooze
+  };
 
   // Status badge styling
   const getStatusBadge = (status: ShiftHandoverBriefData['status']) => {
@@ -179,23 +370,103 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
     }
   };
 
+  // Helper to append an immutable cryptographic audit record to the handover session
+  const appendAuditEntryToHandover = (
+    handover: ShiftHandoverBriefData,
+    params: {
+      actionCategory: SecurityAuditActionCategory;
+      actionName: string;
+      changeSummary: string;
+      entityType: string;
+      entityId?: string;
+      previousValue?: string;
+      newValue?: string;
+      severity?: SecurityAuditSeverity;
+      actorName?: string;
+      actorBadge?: string;
+      actorRole?: string;
+      ipOrTerminalId?: string;
+    }
+  ): ShiftHandoverBriefData => {
+    const currentTrail = handover.auditTrail || createInitialAuditTrail(handover.facilityName);
+    const prev = currentTrail.length > 0 ? currentTrail[currentTrail.length - 1] : null;
+    const entry = createAuditEntry(prev, {
+      actionCategory: params.actionCategory,
+      actionName: params.actionName,
+      changeSummary: params.changeSummary,
+      entityType: params.entityType,
+      entityId: params.entityId,
+      previousValue: params.previousValue,
+      newValue: params.newValue,
+      severity: params.severity || 'routine',
+      actorName: params.actorName || handover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance',
+      actorBadge: params.actorBadge || handover.outgoingSignOff?.badgeNumber || 'KP-8421',
+      actorRole: params.actorRole || 'Watch Commander',
+      ipOrTerminalId: params.ipOrTerminalId || 'TERM-CTRL-01 (10.240.12.44)',
+    });
+    return {
+      ...handover,
+      auditTrail: [...currentTrail, entry],
+      updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    };
+  };
+
   // Handle digital signature application
   const handleApplySignature = (signOff: CommanderSignOff) => {
     setHandovers(prev => prev.map(h => {
       if (h.id !== currentHandover.id) return h;
 
-      const updated = { ...h };
+      let updated = { ...h };
       if (signatureType === 'outgoing') {
         updated.outgoingSignOff = signOff;
         updated.status = 'outgoing_signed';
+        updated = appendAuditEntryToHandover(updated, {
+          actionCategory: 'digital_signatures',
+          actionName: 'Outgoing Commander Official Sign-Off Executed',
+          changeSummary: `${signOff.commanderName} (Badge #${signOff.badgeNumber}) applied digital signature and executed handover oath. Declaration confirmed.`,
+          severity: 'critical',
+          entityType: 'CommanderSignOff',
+          entityId: signOff.commanderId,
+          previousValue: 'Draft Unsigned',
+          newValue: 'Outgoing Signed & Sealed',
+          actorName: signOff.commanderName,
+          actorBadge: signOff.badgeNumber,
+          actorRole: 'Outgoing Watch Commander',
+        });
       } else if (signatureType === 'incoming') {
         updated.incomingSignOff = signOff;
         updated.status = 'fully_signed';
         // Mark all risks as acknowledged by incoming commander
         updated.risks = updated.risks.map(r => ({ ...r, isAcknowledgedByIncoming: true }));
+        updated = appendAuditEntryToHandover(updated, {
+          actionCategory: 'digital_signatures',
+          actionName: 'Incoming Commander Custody Acceptance Signed',
+          changeSummary: `${signOff.commanderName} (Badge #${signOff.badgeNumber}) accepted custody of facility and acknowledged all ${h.risks.length} active risks.`,
+          severity: 'critical',
+          entityType: 'CommanderSignOff',
+          entityId: signOff.commanderId,
+          previousValue: 'Outgoing Signed Pending Custody',
+          newValue: 'Custody Accepted & Fully Signed',
+          actorName: signOff.commanderName,
+          actorBadge: signOff.badgeNumber,
+          actorRole: 'Incoming Watch Commander',
+        });
       } else if (signatureType === 'governor') {
         updated.governorSignOff = signOff;
         updated.status = 'governor_certified';
+        updated = appendAuditEntryToHandover(updated, {
+          actionCategory: 'digital_signatures',
+          actionName: 'Superintendent / Governor Official Ratification',
+          changeSummary: `${signOff.commanderName} (Badge #${signOff.badgeNumber}) certified and ratified the handover session for official record archiving.`,
+          severity: 'critical',
+          entityType: 'CommanderSignOff',
+          entityId: signOff.commanderId,
+          previousValue: 'Fully Signed Pending Governor',
+          newValue: 'Governor Certified & Archived',
+          actorName: signOff.commanderName,
+          actorBadge: signOff.badgeNumber,
+          actorRole: 'Senior Superintendent of Prisons',
+        });
       }
 
       updated.updatedAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -207,10 +478,20 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
   const handleToggleRiskAck = (riskId: string) => {
     setHandovers(prev => prev.map(h => {
       if (h.id !== currentHandover.id) return h;
-      return {
+      const updatedRisks = h.risks.map(r => r.id === riskId ? { ...r, isAcknowledgedByIncoming: !r.isAcknowledgedByIncoming } : r);
+      const targetRisk = h.risks.find(r => r.id === riskId);
+      const updated = {
         ...h,
-        risks: h.risks.map(r => r.id === riskId ? { ...r, isAcknowledgedByIncoming: !r.isAcknowledgedByIncoming } : r)
+        risks: updatedRisks
       };
+      return appendAuditEntryToHandover(updated, {
+        actionCategory: 'risk_assessment',
+        actionName: 'Facility Risk Acknowledged by Incoming Command',
+        changeSummary: `Incoming Commander toggled acknowledgement for Risk #${riskId} (${targetRisk?.title || 'Unknown Risk'}).`,
+        severity: 'routine',
+        entityType: 'FacilityRiskItem',
+        entityId: riskId,
+      });
     }));
   };
 
@@ -252,7 +533,16 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
 
     setHandovers(prev => prev.map(h => {
       if (h.id !== currentHandover.id) return h;
-      return { ...h, risks: [newRisk, ...h.risks] };
+      const updated = { ...h, risks: [newRisk, ...h.risks] };
+      return appendAuditEntryToHandover(updated, {
+        actionCategory: 'risk_assessment',
+        actionName: `Facility Risk Classified: ${newRisk.title}`,
+        changeSummary: `New risk logged in ${newRisk.location}. Severity: ${newRisk.severity}. Mitigation: ${newRisk.mitigation}`,
+        severity: newRisk.severity === 'CRITICAL' ? 'critical' : 'elevated',
+        entityType: 'FacilityRiskItem',
+        entityId: newRisk.id,
+        newValue: `${newRisk.severity} - ${newRisk.location}`,
+      });
     }));
 
     setIsAddRiskModalOpen(false);
@@ -319,6 +609,56 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
     }));
   };
 
+  // Record time-stamped attendance via officer biometric check-in with tamper-evident audit sealing
+  const handleRecordBiometricCheckIn = (record: BiometricCheckInRecord) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      const prevCheckIns = h.biometricCheckIns || INITIAL_BIOMETRIC_CHECKINS;
+      const updatedCheckIns = prevCheckIns.some(r => r.officerId === record.officerId)
+        ? prevCheckIns.map(r => r.officerId === record.officerId ? record : r)
+        : [...prevCheckIns, record];
+
+      const updated: ShiftHandoverBriefData = {
+        ...h,
+        biometricCheckIns: updatedCheckIns,
+        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      };
+
+      return appendAuditEntryToHandover(updated, {
+        actionCategory: 'biometric_attendance',
+        actionName: record.verificationStatus === 'manual_override'
+          ? `Biometric Muster Override: ${record.officerName}`
+          : `Biometric Attendance Verified: ${record.officerName}`,
+        changeSummary: record.verificationStatus === 'manual_override'
+          ? `Supervisor override authorized for ${record.officerName} (${record.badgeNumber}). Reason: ${record.overrideReason || 'N/A'}. Post: ${record.assignedPost}.`
+          : `Officer ${record.officerName} (${record.badgeNumber}) verified attendance on ${record.scannerTerminalId} via ${record.fingerScanned}. Match Confidence: ${record.confidenceScore}%. Minutiae: ${record.minutiaePointsMatched} pts. Post: ${record.assignedPost}.`,
+        severity: record.verificationStatus === 'manual_override' ? 'elevated' : 'routine',
+        entityType: 'BiometricCheckInRecord',
+        entityId: record.id,
+        newValue: `${record.verificationStatus.toUpperCase()} - ${record.checkInTime} - Seal: ${record.verificationHash.substring(0, 16)}...`,
+      });
+    }));
+  };
+
+  // Record tamper-evident security audit log for encrypted shift transmissions
+  const handleChatAuditLog = (
+    summary: string, 
+    _category: 'secure_communications', 
+    severity: 'low' | 'medium' | 'high' | 'critical'
+  ) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      return appendAuditEntryToHandover(h, {
+        actionCategory: 'secure_communications',
+        actionName: 'Encrypted Shift Transmission',
+        changeSummary: summary,
+        severity: severity === 'critical' ? 'critical' : severity === 'high' ? 'elevated' : 'routine',
+        entityType: 'ShiftChatMessage',
+        newValue: summary.substring(0, 120),
+      });
+    }));
+  };
+
   const handleUpdateEquipmentCount = (equipmentId: string, count: number) => {
     setHandovers(prev => prev.map(h => {
       if (h.id !== currentHandover.id) return h;
@@ -340,18 +680,60 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
   const handleUpdateEquipmentCondition = (equipmentId: string, condition: EquipmentCondition) => {
     setHandovers(prev => prev.map(h => {
       if (h.id !== currentHandover.id) return h;
+
+      let newTasks = [...h.tasks];
+
+      const updatedEquipment = h.equipment.map(e => {
+        if (e.id !== equipmentId) return e;
+
+        const isDamaged = condition === 'damaged' || condition === 'defective';
+        const workOrderRef = isDamaged
+          ? (e.workOrderRef || `WO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`)
+          : e.workOrderRef;
+        const workOrderStatus = isDamaged ? (e.workOrderStatus || 'pending') : e.workOrderStatus;
+        const workOrderTriggeredAt = isDamaged ? (e.workOrderTriggeredAt || new Date().toISOString()) : e.workOrderTriggeredAt;
+
+        let discrepancyNote = e.discrepancyNote;
+        if (isDamaged) {
+          discrepancyNote = `[AUTO WORK ORDER ${workOrderRef}] Asset flagged as DAMAGED during handover check. Armory & Technical Services repair ticket issued.`;
+          
+          // Auto-trigger a pending task for the incoming shift if not already present
+          const taskExists = newTasks.some(t => t.id === `task-wo-${equipmentId}` || (t.notes && workOrderRef && t.notes.includes(workOrderRef)));
+          if (!taskExists) {
+            const woTask: PendingTaskItem = {
+              id: `task-wo-${equipmentId}`,
+              title: `[Work Order ${workOrderRef}] Corrective Repair & Armory Intake for Damaged ${e.name}`,
+              description: `Critical inventory asset flagged as DAMAGED at ${e.storageLocation}. Corrective maintenance docket ${workOrderRef} triggered. Incoming watch must verify custodial status, log technician arrival, and ensure security seal reconciliation.`,
+              priority: e.criticality === 'critical' || e.category === 'keys_security' || e.category === 'armory_firearms' ? 'urgent' : 'high',
+              assignedRole: 'Armory Technician / Custody Escort',
+              assignedOfficer: 'Prison Technical Workshop',
+              dueTime: 'Next Watch',
+              status: 'pending',
+              category: 'maintenance',
+              notes: `Auto-generated from Shift Inventory Check for ${e.name} (WO #${workOrderRef}).`,
+            };
+            newTasks = [woTask, ...newTasks];
+          }
+        } else if (condition === 'maintenance' || condition === 'needs_maintenance') {
+          discrepancyNote = e.discrepancyNote || `Needs preventative maintenance inspection and diagnostic check.`;
+        } else if (condition === 'operational') {
+          discrepancyNote = e.countedQty === e.expectedQty ? undefined : e.discrepancyNote;
+        }
+
+        return {
+          ...e,
+          condition,
+          workOrderRef,
+          workOrderStatus,
+          workOrderTriggeredAt,
+          discrepancyNote,
+        };
+      });
+
       return {
         ...h,
-        equipment: h.equipment.map(e => {
-          if (e.id !== equipmentId) return e;
-          return {
-            ...e,
-            condition,
-            discrepancyNote: condition !== 'operational' 
-              ? (e.discrepancyNote || `Condition flagged as ${condition}. Service inspection required.`)
-              : (e.countedQty === e.expectedQty ? undefined : e.discrepancyNote)
-          };
-        })
+        equipment: updatedEquipment,
+        tasks: newTasks,
       };
     }));
   };
@@ -381,6 +763,69 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
       return {
         ...h,
         equipment: [newItem, ...h.equipment]
+      };
+    }));
+  };
+
+  const handleUpdateEquipmentItem = (updatedItem: EquipmentInventoryItem) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      return {
+        ...h,
+        equipment: h.equipment.map(e => e.id === updatedItem.id ? updatedItem : e),
+        updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      };
+    }));
+  };
+
+  // Contraband Seized Management Handlers
+  const handleUpdateContrabandSeverity = (itemId: string, newSeverity: ContrabandSeverity) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      const updatedContraband = (h.contrabandSeized || INITIAL_CONTRABAND_ITEMS).map(item => {
+        if (item.id !== itemId) return item;
+        return { ...item, severityLevel: newSeverity };
+      });
+      return { ...h, contrabandSeized: updatedContraband };
+    }));
+  };
+
+  const handleUpdateContrabandDisposalStatus = (itemId: string, newStatus: ContrabandDisposalStatus) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      const updatedContraband = (h.contrabandSeized || INITIAL_CONTRABAND_ITEMS).map(item => {
+        if (item.id !== itemId) return item;
+        return { ...item, disposalStatus: newStatus };
+      });
+      return { ...h, contrabandSeized: updatedContraband };
+    }));
+  };
+
+  const handleAddContrabandItem = (newItem: ContrabandItem) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      const updated = {
+        ...h,
+        contrabandSeized: [newItem, ...(h.contrabandSeized || INITIAL_CONTRABAND_ITEMS)]
+      };
+      return appendAuditEntryToHandover(updated, {
+        actionCategory: 'contraband_evidence',
+        actionName: `Contraband Evidence Confiscated: ${newItem.itemDescription}`,
+        changeSummary: `Seized ${newItem.itemDescription} in ${newItem.seizedLocation}. Chain-of-custody seal: ${newItem.chainOfCustodyRef}. Severity: ${newItem.severityLevel.toUpperCase()}.`,
+        severity: newItem.severityLevel === 'critical' ? 'critical' : 'elevated',
+        entityType: 'ContrabandItem',
+        entityId: newItem.id,
+        newValue: `Confiscated & Vaulted (Seal #${newItem.chainOfCustodyRef})`,
+      });
+    }));
+  };
+
+  const handleDeleteContrabandItem = (itemId: string) => {
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      return {
+        ...h,
+        contrabandSeized: (h.contrabandSeized || INITIAL_CONTRABAND_ITEMS).filter(i => i.id !== itemId)
       };
     }));
   };
@@ -440,6 +885,7 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
       outgoingShift: newSessionOutgoingShift,
       incomingShift: newSessionIncomingShift,
       status: 'draft',
+      auditTrail: createInitialAuditTrail(facilityName),
       headcountSummary: {
         totalInmates: targetFacility?.currentInmates || 850,
         certifiedCapacity: targetFacility?.capacity || 800,
@@ -468,15 +914,72 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
     setIsNewSessionModalOpen(false);
   };
 
+  // Update Shift Executive Summary (Gemini AI auto-generated or commander edited)
+  const handleUpdateExecutiveSummary = (summaryText: string) => {
+    const timestamp = new Date().toISOString();
+    setHandovers(prev => prev.map(h => {
+      if (h.id !== currentHandover.id) return h;
+      return {
+        ...h,
+        executiveSummaryText: summaryText,
+        executiveSummaryGeneratedAt: timestamp,
+      };
+    }));
+  };
+
+  // Append Gemini Executive Summary as an official Handover Note
+  const handleAppendExecutiveSummaryToNotes = (summaryText: string) => {
+    const newNote: ShiftHandoverNote = {
+      id: `note-ai-${Date.now()}`,
+      category: 'general_orders',
+      title: language === 'fr' ? 'Synthèse Exécutive du Quart (Gemini AI)' : 'Shift Executive Summary (Gemini AI)',
+      content: summaryText,
+      urgency: 'urgent',
+      location: 'Central Command Post',
+      authorCommander: currentHandover.outgoingSignOff?.commanderName || 'Shift Commander (AI Assisted)',
+      authorBadge: currentHandover.outgoingSignOff?.badgeNumber || 'KP-COMMAND',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isAcknowledgedByIncoming: false,
+    };
+    handleAppendHandoverNote(newNote);
+  };
+
+  // Append meteorological & tactical visibility directives to handover notes
+  const handleAppendWeatherToNotes = (weatherLogText: string) => {
+    const newNote: ShiftHandoverNote = {
+      id: `note-weather-${Date.now()}`,
+      category: 'general_orders',
+      title: language === 'fr' 
+        ? 'Directives Météorologiques & Surveillance Visibilité (Patrouilles, Cour, Convois)' 
+        : 'Meteorological & Tactical Visibility Directives (Patrols, Yard, Court Transits)',
+      content: weatherLogText,
+      urgency: 'urgent',
+      location: 'Exterior Perimeter & Courtyards',
+      authorCommander: currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance',
+      authorBadge: currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isAcknowledgedByIncoming: false,
+    };
+    handleAppendHandoverNote(newNote);
+  };
+
   // Add new structured handover note
   const handleAppendHandoverNote = (newNote: ShiftHandoverNote) => {
     setHandovers(prev => prev.map(h => {
       if (h.id !== currentHandover.id) return h;
       const currentNotes = h.handoverNotes || INITIAL_HANDOVER_NOTES;
-      return {
+      const updated = {
         ...h,
         handoverNotes: [newNote, ...currentNotes]
       };
+      return appendAuditEntryToHandover(updated, {
+        actionCategory: 'executive_command',
+        actionName: `Handover Directive Appended: ${newNote.title}`,
+        changeSummary: `Note appended under category ${newNote.category.toUpperCase()} by ${newNote.authorCommander} (Badge #${newNote.authorBadge}). Urgency: ${newNote.urgency.toUpperCase()}.`,
+        severity: newNote.urgency === 'critical' ? 'critical' : 'routine',
+        entityType: 'ShiftHandoverNote',
+        entityId: newNote.id,
+      });
     }));
   };
 
@@ -575,7 +1078,19 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
 
     setHandovers(prev => prev.map(h => {
       if (h.id !== currentHandover.id) return h;
-      return { ...h, risks: [newEmergencyRisk, ...h.risks] };
+      const updated = { ...h, risks: [newEmergencyRisk, ...h.risks] };
+      return appendAuditEntryToHandover(updated, {
+        actionCategory: 'emergency_tactical',
+        actionName: `Tactical Emergency Alert Broadcast: [${alertPayload.code}]`,
+        changeSummary: `${alertPayload.author} triggered tactical code red in ${alertPayload.sector}. Directives: ${alertPayload.directives}.`,
+        severity: 'critical',
+        entityType: 'EmergencyAlertPayload',
+        entityId: alertPayload.code,
+        newValue: `EMERGENCY ALERT: ${alertPayload.title}`,
+        actorName: alertPayload.author,
+        actorBadge: 'TAC-CMD',
+        actorRole: 'Tactical Watch Lead',
+      });
     }));
   };
 
@@ -708,11 +1223,131 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
             <p className="text-xs text-slate-400">
               {currentHandover.facilityName} &bull; {language === 'fr' ? 'Quart Cédant :' : 'Relieved Shift :'} <strong className="text-slate-200 capitalize">{currentHandover.outgoingShift}</strong> &rarr; {language === 'fr' ? 'Quart Prenant :' : 'Relieving Shift :'} <strong className="text-slate-200 capitalize">{currentHandover.incomingShift}</strong> &bull; {currentHandover.date}
             </p>
+
+            {/* Local Storage Offline Resilient Cache Bar */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] font-mono">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border ${
+                isOnline 
+                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800' 
+                  : 'bg-amber-950/80 text-amber-300 border-amber-700 animate-pulse'
+              }`}>
+                {isOnline ? <Wifi className="w-3 h-3 text-emerald-400" /> : <WifiOff className="w-3 h-3 text-amber-400" />}
+                <span>{isOnline ? (language === 'fr' ? 'RÉSEAU ACTIF' : 'NETWORK ONLINE') : (language === 'fr' ? 'HORS-LIGNE (CACHE ACTIF)' : 'OFFLINE (CACHE RESILIENT)')}</span>
+              </span>
+
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                <Save className="w-3 h-3 text-cyan-400" />
+                <span>
+                  {language === 'fr' ? 'Cache Local :' : 'Draft Cache:'} {lastCacheSavedAt || (language === 'fr' ? 'Synchronisé' : 'Synchronized')}
+                </span>
+                {isRestoredFromCache && (
+                  <span className="text-cyan-400 text-[10px] font-bold">({language === 'fr' ? 'Restauré' : 'Restored'})</span>
+                )}
+              </span>
+
+              <button
+                type="button"
+                onClick={handleForceManualSync}
+                disabled={isManualSyncing}
+                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[10px] transition-colors cursor-pointer flex items-center gap-1 font-sans"
+                title={language === 'fr' ? 'Forcer la synchronisation immédiate vers le cache local' : 'Force immediate sync to browser localStorage cache'}
+              >
+                <RefreshCw className={`w-2.5 h-2.5 text-cyan-400 ${isManualSyncing ? 'animate-spin' : ''}`} />
+                <span>{language === 'fr' ? 'Sync Immédiate' : 'Sync Cache'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClearCache}
+                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-rose-950/50 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-800 text-[10px] transition-colors cursor-pointer font-sans"
+                title={language === 'fr' ? 'Réinitialiser le cache local du brouillon' : 'Clear draft cache and restore initial data'}
+              >
+                <span>{language === 'fr' ? 'Réinit. Cache' : 'Reset Cache'}</span>
+              </button>
+
+              {/* Quick Weather & Tactical Visibility Live Pill */}
+              <button
+                type="button"
+                onClick={() => {
+                  setExecutiveSummaryTab('weather');
+                  setIsExecutiveSummaryOpen(true);
+                }}
+                className="px-2 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 text-[10px] transition-colors cursor-pointer flex items-center gap-1 font-sans"
+                title={language === 'fr' ? 'Consulter le bulletin météo & visibilité tactique' : 'Open Meteorological & Visibility Tactical Command Deck'}
+              >
+                <CloudFog className="w-3 h-3 text-cyan-400" />
+                <span>{language === 'fr' ? 'Météo: 8.5°C | 0.8 km Brouillard' : 'Weather: 8.5°C | 0.8 km Fog'}</span>
+                <span className="px-1 py-0.2 rounded bg-rose-900 text-rose-200 text-[9px] font-mono font-bold">
+                  {language === 'fr' ? 'COUR SUSPENDUE' : 'YARD SUSP'}
+                </span>
+              </button>
+
+              {/* Quick Security Audit Ledger Pill */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('audit');
+                  window.scrollTo({ top: 400, behavior: 'smooth' });
+                }}
+                className="px-2 py-0.5 rounded bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-700 text-[10px] transition-colors cursor-pointer flex items-center gap-1 font-sans"
+                title={language === 'fr' ? 'Consulter le registre d\'audit inviolable' : 'Open Tamper-Evident Security Audit Ledger'}
+              >
+                <FileLock2 className="w-3 h-3 text-emerald-400" />
+                <span>{language === 'fr' ? 'Audit :' : 'Audit:'} {(currentHandover.auditTrail || []).length} {language === 'fr' ? 'blocs' : 'blocks'}</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              </button>
+
+              {/* Quick Biometric Check-in Attendance Pill */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('biometrics');
+                  window.scrollTo({ top: 400, behavior: 'smooth' });
+                }}
+                className="px-2 py-0.5 rounded bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 text-[10px] transition-colors cursor-pointer flex items-center gap-1 font-sans"
+                title={language === 'fr' ? 'Consulter le pointage biométrique des surveillants' : 'Open Officer Biometric Check-in Widget'}
+              >
+                <Fingerprint className="w-3 h-3 text-cyan-400" />
+                <span>{language === 'fr' ? 'Pointage :' : 'Biometrics:'} {(currentHandover.biometricCheckIns || INITIAL_BIOMETRIC_CHECKINS).length}/{INITIAL_SECURITY_OFFICERS.length}</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              </button>
+
+              {/* Quick Shift Communications Pill */}
+              <button
+                type="button"
+                onClick={() => setIsChatSidebarOpen(true)}
+                className="px-2 py-0.5 rounded bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-700 text-[10px] transition-colors cursor-pointer flex items-center gap-1 font-sans"
+                title={language === 'fr' ? 'Ouvrir les transmissions chiffrées de relève' : 'Open Shift Communications Secure Chat Sidebar'}
+              >
+                <Radio className="w-3 h-3 text-indigo-400 animate-pulse" />
+                <span>{language === 'fr' ? 'Comms Sécurisées' : 'Shift Comms'}</span>
+                <span className="px-1 py-0.2 rounded bg-cyan-900 text-cyan-200 text-[9px] font-mono font-bold flex items-center gap-0.5">
+                  <Lock className="w-2 h-2 text-cyan-300" />
+                  <span>E2EE</span>
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Action Toolbar */}
           <div className="flex flex-wrap items-center gap-2">
             
+            {/* Shift Communications Secure Chat Launcher Button */}
+            <button
+              onClick={() => setIsChatSidebarOpen(true)}
+              className="px-3.5 py-2 bg-gradient-to-r from-cyan-950 via-slate-900 to-indigo-950 hover:from-cyan-900 hover:to-indigo-900 text-cyan-200 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-cyan-500/50 shadow-sm active:scale-95 cursor-pointer group"
+              title={language === 'fr' 
+                ? 'Ouvrir la messagerie sécurisée chiffrée de relève entre commandants' 
+                : 'Open Shift Communications real-time encrypted messaging sidebar'}
+            >
+              <Radio className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform animate-pulse" />
+              <span>{language === 'fr' ? 'Transmissions de Relève' : 'Shift Comms'}</span>
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-cyan-500/30 text-cyan-200 border border-cyan-400/40 flex items-center gap-1">
+                <Lock className="w-2.5 h-2.5" />
+                <span>SECURE</span>
+              </span>
+            </button>
+
             {/* Trigger Emergency Alert Button */}
             <button
               onClick={() => setIsEmergencyModalOpen(true)}
@@ -765,25 +1400,45 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
               </button>
             )}
 
-            {/* Print / Export Briefing Button */}
-            <div className="inline-flex rounded-lg shadow-sm border border-slate-700 overflow-hidden">
+            {/* Generate PDF Shift Report Button (Formatted for Submission to Prison Warden) */}
+            <div className="inline-flex rounded-lg shadow-sm border border-slate-700 overflow-hidden bg-slate-800">
               <button
                 onClick={() => setIsPrintModalOpen(true)}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors border-r border-slate-700"
-                title={language === 'fr' ? 'Ouvrir l\'aperçu officiel et impression optimisée CSS' : 'Print official shift handover briefing'}
+                className="px-3.5 py-2 bg-gradient-to-r from-slate-800 via-indigo-950 to-slate-900 hover:from-slate-700 hover:to-indigo-900 text-white text-xs font-bold flex items-center gap-2 transition-all border-r border-slate-700 active:scale-95 cursor-pointer group"
+                title={language === 'fr' 
+                  ? 'Générer le rapport PDF officiel de passation de quart pour transmission au directeur de la prison' 
+                  : 'Generate official PDF shift handover report formatted for submission to the prison warden'}
               >
-                <Printer className="w-4 h-4 text-indigo-400" />
-                <span>{language === 'fr' ? 'Imprimer / Exporter' : 'Print/Export Briefing'}</span>
+                <FileText className="w-4 h-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
+                <span>{language === 'fr' ? 'Générer Rapport PDF Relève' : 'Generate PDF Shift Report'}</span>
+                <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-indigo-500/30 text-indigo-200 border border-indigo-400/40">
+                  {language === 'fr' ? 'Direction' : 'Warden'}
+                </span>
               </button>
               <button
                 onClick={() => generateHandoverPdf(currentHandover, language)}
-                className="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 text-xs font-semibold transition-colors flex items-center gap-1"
-                title={language === 'fr' ? 'Téléchargement direct du PDF officiel' : 'Direct download formatted PDF'}
+                className="px-2.5 py-2 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                title={language === 'fr' ? 'Téléchargement direct du PDF officiel pour le directeur' : 'Direct download formatted PDF report for warden'}
               >
                 <Download className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-bold">PDF</span>
               </button>
             </div>
+
+            {/* Voice-to-Text Recording Widget Launcher */}
+            <button
+              onClick={() => setIsVoiceDictationModalOpen(true)}
+              className="px-3.5 py-2 bg-gradient-to-r from-rose-950 via-slate-900 to-indigo-950 hover:from-rose-900 hover:to-indigo-900 text-white rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-rose-500/50 shadow-xs active:scale-95 cursor-pointer group"
+              title={language === 'fr' 
+                ? 'Ouvrir l\'outil de dictée vocale temps réel avec reconnaissance automatique de la parole' 
+                : 'Open real-time voice-to-text dictation recorder for commanding officers'}
+            >
+              <Mic className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform animate-pulse" />
+              <span>{language === 'fr' ? 'Dictée Vocale' : 'Dictate Note'}</span>
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-rose-500/30 text-rose-200 border border-rose-400/40">
+                VOICE
+              </span>
+            </button>
 
             {/* New Session Button */}
             <button
@@ -879,6 +1534,56 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => setExecutiveSummaryTab('ai_summary')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  executiveSummaryTab === 'ai_summary' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Sparkles className="w-3 h-3 text-indigo-400 animate-pulse" />
+                <span>{language === 'fr' ? 'Synthèse IA' : 'AI Summary'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('weather')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  executiveSummaryTab === 'weather' ? 'bg-cyan-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <CloudFog className="w-3 h-3 text-cyan-400" />
+                <span>{language === 'fr' ? 'Météo & Visibilité' : 'Weather & Visibility'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('audit')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  executiveSummaryTab === 'audit' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <FileLock2 className="w-3 h-3 text-emerald-400" />
+                <span>{language === 'fr' ? 'Audit Sécurité' : 'Security Audit'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('biometrics')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  executiveSummaryTab === 'biometrics' ? 'bg-cyan-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Fingerprint className="w-3 h-3 text-cyan-400" />
+                <span>{language === 'fr' ? 'Pointage Biométrique' : 'Biometric Check-in'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('comms')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  executiveSummaryTab === 'comms' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Radio className="w-3 h-3 text-cyan-400 animate-pulse" />
+                <span>{language === 'fr' ? 'Comms Sécurisées' : 'Shift Comms'}</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setExecutiveSummaryTab('trend')}
                 className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer ${
                   executiveSummaryTab === 'trend' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
@@ -944,6 +1649,26 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
                 <Key className="w-3 h-3 text-amber-400" />
                 <span>{language === 'fr' ? 'Inventaire Ressources' : 'Resources & Inventory'}</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('contraband')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  executiveSummaryTab === 'contraband' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <ShieldAlert className="w-3 h-3 text-rose-400" />
+                <span>{language === 'fr' ? 'Saisies Contrebande' : 'Contraband Seized'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExecutiveSummaryTab('voice')}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                  executiveSummaryTab === 'voice' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Mic className="w-3 h-3 text-rose-400" />
+                <span>{language === 'fr' ? 'Dictée Vocale' : 'Voice Dictation'}</span>
+              </button>
             </div>
 
             <button
@@ -961,6 +1686,37 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
         {isExecutiveSummaryOpen && (
           <div className="space-y-4">
             
+            {/* Current Weather & Visibility Telemetry Widget (Outdoor Patrols, Yard, Court Transits) */}
+            {(executiveSummaryTab === 'all' || executiveSummaryTab === 'weather') && (
+              <CurrentWeatherVisibilityWidget
+                language={language}
+                facilityId={currentHandover.facilityId}
+                facilityName={currentHandover.facilityName}
+                compactView={executiveSummaryTab === 'all'}
+                onAppendToNotes={handleAppendWeatherToNotes}
+                commanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+                commanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+                onViewFullWidget={() => setExecutiveSummaryTab('weather')}
+              />
+            )}
+
+            {/* Shift Executive Summary (Gemini AI Powered) */}
+            {(executiveSummaryTab === 'all' || executiveSummaryTab === 'ai_summary') && (
+              <ShiftExecutiveSummarySection
+                language={language}
+                handover={currentHandover}
+                contrabandItems={currentHandover.contrabandSeized || INITIAL_CONTRABAND_ITEMS}
+                tasks={currentHandover.tasks || []}
+                notes={currentHandover.handoverNotes || INITIAL_HANDOVER_NOTES}
+                onUpdateExecutiveSummary={handleUpdateExecutiveSummary}
+                onAppendToNotes={handleAppendExecutiveSummaryToNotes}
+                onProceedToSignOff={() => {
+                  setActiveTab('signoffs');
+                  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                }}
+              />
+            )}
+
             {/* Incident Trend Chart & Sector Heatmap */}
             {(executiveSummaryTab === 'all' || executiveSummaryTab === 'trend') && (
               <div className={executiveSummaryTab === 'all' ? 'grid grid-cols-1 xl:grid-cols-12 gap-4' : 'w-full'}>
@@ -1041,6 +1797,8 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
               <ResourcesInventoryCheckSection
                 language={language}
                 equipment={currentHandover.equipment}
+                contrabandItems={currentHandover.contrabandSeized || INITIAL_CONTRABAND_ITEMS}
+                inmates={inmates}
                 outgoingShift={currentHandover.outgoingShift}
                 incomingShift={currentHandover.incomingShift}
                 outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
@@ -1052,9 +1810,138 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
                 onToggleVerification={handleToggleEquipmentVerification}
                 onVerifyAllMatching={handleVerifyAllEquipment}
                 onAddEquipmentItem={handleAddEquipmentItem}
+                onUpdateEquipmentItem={handleUpdateEquipmentItem}
+                onUpdateContrabandSeverity={handleUpdateContrabandSeverity}
+                onUpdateContrabandDisposalStatus={handleUpdateContrabandDisposalStatus}
+                onAddContrabandItem={handleAddContrabandItem}
+                onDeleteContrabandItem={handleDeleteContrabandItem}
                 onProceedToSignOff={() => setActiveTab('signoffs')}
                 compactView={true}
               />
+            )}
+
+            {/* Dedicated Contraband Seized Table & 30-Day Trend Chart in Executive Summary */}
+            {(executiveSummaryTab === 'contraband') && (
+              <div className="space-y-4">
+                <Contraband30DayTrendChart language={language} />
+                <ContrabandSeizedTable
+                  language={language}
+                  items={currentHandover.contrabandSeized || INITIAL_CONTRABAND_ITEMS}
+                  inmates={inmates}
+                  currentOfficerName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+                  currentOfficerBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+                  onUpdateSeverity={handleUpdateContrabandSeverity}
+                  onUpdateDisposalStatus={handleUpdateContrabandDisposalStatus}
+                  onAddItem={handleAddContrabandItem}
+                  onDeleteItem={handleDeleteContrabandItem}
+                  compactView={true}
+                />
+              </div>
+            )}
+
+            {/* Shift Handover Voice-to-Text Dictation Deck */}
+            {(executiveSummaryTab === 'voice') && (
+              <HandoverVoiceDictationWidget
+                language={language}
+                onAppendNote={handleAppendHandoverNote}
+                outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+                outgoingCommanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+                incomingCommanderName={currentHandover.incomingSignOff?.commanderName || 'Capt. Jonathan Hayes'}
+                incomingCommanderBadge={currentHandover.incomingSignOff?.badgeNumber || 'KP-7890'}
+              />
+            )}
+
+            {/* Security Incident Audit (Tamper-Evident Ledger) in Executive Summary */}
+            {(executiveSummaryTab === 'all' || executiveSummaryTab === 'audit') && (
+              <SecurityIncidentAuditWidget
+                language={language}
+                auditTrail={currentHandover.auditTrail || []}
+                handoverRef={currentHandover.referenceNumber}
+                facilityName={currentHandover.facilityName}
+                date={currentHandover.date}
+                outgoingShift={currentHandover.outgoingShift}
+                incomingShift={currentHandover.incomingShift}
+                compactView={executiveSummaryTab === 'all'}
+              />
+            )}
+
+            {/* Officer Biometric Check-in & Time-Stamped Attendance in Executive Summary */}
+            {(executiveSummaryTab === 'all' || executiveSummaryTab === 'biometrics') && (
+              <OfficerBiometricCheckInWidget
+                language={language}
+                currentShift={currentHandover.outgoingShift}
+                facilityName={currentHandover.facilityName}
+                handoverRef={currentHandover.referenceNumber}
+                checkInRecords={currentHandover.biometricCheckIns || INITIAL_BIOMETRIC_CHECKINS}
+                officersList={INITIAL_SECURITY_OFFICERS}
+                onRecordCheckIn={handleRecordBiometricCheckIn}
+                commanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+                commanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+                compactView={executiveSummaryTab === 'all'}
+              />
+            )}
+
+            {/* Shift Communications (Secure Real-Time Encrypted Command Transit) in Executive Summary */}
+            {(executiveSummaryTab === 'all' || executiveSummaryTab === 'comms') && (
+              <div className="bg-slate-900 border border-cyan-500/40 rounded-xl p-4 text-white shadow-lg space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-cyan-950 border border-cyan-500/50 flex items-center justify-center text-cyan-400">
+                      <Radio className="w-4 h-4 animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-200">
+                          {language === 'fr' ? 'Transmissions de Relève Chiffrées (AES-256-GCM)' : 'Shift Communications (AES-256-GCM Encrypted Comms)'}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/40">
+                          ACTIVE WSS LINK
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        {currentHandover.referenceNumber} &bull; {currentHandover.facilityName}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('comms')}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-700/50 text-[11px] font-bold transition-all flex items-center gap-1.5"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>{language === 'fr' ? 'Plein Écran' : 'Full Console'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsChatSidebarOpen(true)}
+                      className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold transition-all shadow-md shadow-cyan-900/40 flex items-center gap-1.5"
+                    >
+                      <Radio className="w-3.5 h-3.5" />
+                      <span>{language === 'fr' ? 'Ouvrir Volet Latéral' : 'Open Sidebar'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  {language === 'fr'
+                    ? 'Canal de communication sécurisé et inviolable permettant aux commandants sortant et entrant d\'échanger des directives tactiques, de vérifier la conformité des trousseaux de clés et de consigner les accusés de réception en direct avec scellé cryptographique SHA-256.'
+                    : 'End-to-end encrypted, tamper-evident communications channel for incoming and outgoing watch commanders to exchange directives, verify key control custody, and acknowledge handovers with SHA-256 integrity seals.'}
+                </p>
+
+                <div className="flex flex-wrap items-center justify-between text-[11px] font-mono text-slate-400 bg-slate-950/80 p-2.5 rounded-lg border border-slate-800">
+                  <span className="flex items-center gap-1 text-cyan-400">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>ALGORITHM: AES-256-GCM / SHA-256 INTEGRITY SEAL</span>
+                  </span>
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <span>Vance (SENTINEL-1)</span>
+                    <span className="text-slate-600">&harr;</span>
+                    <span>Hayes (EAGLE-2)</span>
+                  </div>
+                </div>
+              </div>
             )}
 
           </div>
@@ -1186,6 +2073,25 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
             ) : null}
           </button>
 
+          {/* Tab: Contraband Seized Register */}
+          <button
+            onClick={() => setActiveTab('contraband')}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'contraband'
+                ? 'bg-rose-900 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-rose-700'
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4 text-rose-500" />
+            <span>{language === 'fr' ? 'Objets Saisis & Scellés' : 'Contraband Seized'}</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-100 text-rose-900">
+              {(currentHandover.contrabandSeized || INITIAL_CONTRABAND_ITEMS).length}
+            </span>
+            {(currentHandover.contrabandSeized || INITIAL_CONTRABAND_ITEMS).some(i => i.severityLevel === 'critical') && (
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" title="Critical Lethal Contraband" />
+            )}
+          </button>
+
           {/* Tab: Sign-Offs */}
           <button
             onClick={() => setActiveTab('signoffs')}
@@ -1200,6 +2106,63 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
             {currentHandover.status === 'governor_certified' && (
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             )}
+          </button>
+
+          {/* Tab: Security Incident Audit */}
+          <button
+            onClick={() => setActiveTab('audit')}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'audit'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-emerald-700'
+            }`}
+          >
+            <FileLock2 className="w-4 h-4 text-emerald-400" />
+            <span>{language === 'fr' ? 'Audit Sécurité' : 'Security Incident Audit'}</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              activeTab === 'audit' ? 'bg-emerald-950 text-emerald-300' : 'bg-emerald-100 text-emerald-900'
+            }`}>
+              {(currentHandover.auditTrail || []).length}
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Tamper-Evident SHA-256 Ledger" />
+          </button>
+
+          {/* Tab: Officer Biometric Check-in */}
+          <button
+            onClick={() => setActiveTab('biometrics')}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'biometrics'
+                ? 'bg-cyan-700 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-cyan-700'
+            }`}
+          >
+            <Fingerprint className="w-4 h-4 text-cyan-400" />
+            <span>{language === 'fr' ? 'Pointage Biométrique' : 'Biometric Check-in'}</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              activeTab === 'biometrics' ? 'bg-cyan-950 text-cyan-200' : 'bg-cyan-100 text-cyan-900'
+            }`}>
+              {(currentHandover.biometricCheckIns || INITIAL_BIOMETRIC_CHECKINS).length}/{INITIAL_SECURITY_OFFICERS.length}
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" title="Live Fingerprint Terminal Active" />
+          </button>
+
+          {/* Tab: Shift Communications Secure Chat */}
+          <button
+            onClick={() => setActiveTab('comms')}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'comms'
+                ? 'bg-gradient-to-r from-cyan-900 to-indigo-900 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-cyan-700'
+            }`}
+          >
+            <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
+            <span>{language === 'fr' ? 'Transmissions de Relève' : 'Shift Comms'}</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              activeTab === 'comms' ? 'bg-cyan-950 text-cyan-200' : 'bg-cyan-100 text-cyan-900'
+            }`}>
+              E2EE
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="256-Bit Encrypted WebSocket Channel" />
           </button>
         </div>
 
@@ -1458,18 +2421,29 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
 
       {/* TAB CONTENT 2.8: STRUCTURED SHIFT HANDOVER NOTES & DIRECTIVES */}
       {activeTab === 'notes' && (
-        <ShiftHandoverNotesSection
-          language={language}
-          notes={currentHandover.handoverNotes || INITIAL_HANDOVER_NOTES}
-          onAppendNote={handleAppendHandoverNote}
-          onAcknowledgeNote={handleAcknowledgeHandoverNote}
-          onAcknowledgeAllNotes={handleAcknowledgeAllHandoverNotes}
-          outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
-          outgoingCommanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
-          incomingCommanderName={currentHandover.incomingSignOff?.commanderName || 'Capt. Jonathan Hayes'}
-          incomingCommanderBadge={currentHandover.incomingSignOff?.badgeNumber || 'KP-7890'}
-          inmates={inmates}
-        />
+        <div className="space-y-4">
+          <HandoverVoiceDictationWidget
+            language={language}
+            onAppendNote={handleAppendHandoverNote}
+            outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+            outgoingCommanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+            incomingCommanderName={currentHandover.incomingSignOff?.commanderName || 'Capt. Jonathan Hayes'}
+            incomingCommanderBadge={currentHandover.incomingSignOff?.badgeNumber || 'KP-7890'}
+          />
+
+          <ShiftHandoverNotesSection
+            language={language}
+            notes={currentHandover.handoverNotes || INITIAL_HANDOVER_NOTES}
+            onAppendNote={handleAppendHandoverNote}
+            onAcknowledgeNote={handleAcknowledgeHandoverNote}
+            onAcknowledgeAllNotes={handleAcknowledgeAllHandoverNotes}
+            outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+            outgoingCommanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+            incomingCommanderName={currentHandover.incomingSignOff?.commanderName || 'Capt. Jonathan Hayes'}
+            incomingCommanderBadge={currentHandover.incomingSignOff?.badgeNumber || 'KP-7890'}
+            inmates={inmates}
+          />
+        </div>
       )}
 
       {/* TAB CONTENT 3: RESOURCES & INVENTORY CHECK */}
@@ -1477,6 +2451,8 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
         <ResourcesInventoryCheckSection
           language={language}
           equipment={currentHandover.equipment}
+          contrabandItems={currentHandover.contrabandSeized || INITIAL_CONTRABAND_ITEMS}
+          inmates={inmates}
           outgoingShift={currentHandover.outgoingShift}
           incomingShift={currentHandover.incomingShift}
           outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
@@ -1488,25 +2464,61 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
           onToggleVerification={handleToggleEquipmentVerification}
           onVerifyAllMatching={handleVerifyAllEquipment}
           onAddEquipmentItem={handleAddEquipmentItem}
+          onUpdateEquipmentItem={handleUpdateEquipmentItem}
+          onUpdateContrabandSeverity={handleUpdateContrabandSeverity}
+          onUpdateContrabandDisposalStatus={handleUpdateContrabandDisposalStatus}
+          onAddContrabandItem={handleAddContrabandItem}
+          onDeleteContrabandItem={handleDeleteContrabandItem}
           onProceedToSignOff={() => setActiveTab('signoffs')}
           compactView={false}
         />
+      )}
+
+      {/* TAB CONTENT 3.5: CONTRABAND SEIZED & EVIDENCE REPOSITORY */}
+      {activeTab === 'contraband' && (
+        <div className="space-y-6">
+          <Contraband30DayTrendChart language={language} />
+          <ContrabandSeizedTable
+            language={language}
+            items={currentHandover.contrabandSeized || INITIAL_CONTRABAND_ITEMS}
+            inmates={inmates}
+            currentOfficerName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+            currentOfficerBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+            onUpdateSeverity={handleUpdateContrabandSeverity}
+            onUpdateDisposalStatus={handleUpdateContrabandDisposalStatus}
+            onAddItem={handleAddContrabandItem}
+            onDeleteItem={handleDeleteContrabandItem}
+            compactView={false}
+          />
+        </div>
       )}
 
       {/* TAB CONTENT 4: SIGN-OFFS & RATIFICATION */}
       {activeTab === 'signoffs' && (
         <div className="space-y-6">
           
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <FileCheck className="w-4 h-4 text-emerald-600" />
-              <span>{language === 'fr' ? 'Protocole Légal de Passation de Garde & Signatures Numériques' : 'Official Custodial Handover Protocol & Digital Signatures'}</span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              {language === 'fr'
-                ? 'Conformément aux directives pénitentiaires, la responsabilité légale de la garde est officiellement transférée après vérification contradictoire des matériels et signature mutuelle.'
-                : 'Pursuant to national corrections standing orders, legal command transfer takes effect upon joint resources verification and mutual digital sign-off.'}
-            </p>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <FileCheck className="w-4 h-4 text-emerald-600" />
+                <span>{language === 'fr' ? 'Protocole Légal de Passation de Garde & Signatures Numériques' : 'Official Custodial Handover Protocol & Digital Signatures'}</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                {language === 'fr'
+                  ? 'Conformément aux directives pénitentiaires, la responsabilité légale de la garde est officiellement transférée après vérification contradictoire des matériels et signature mutuelle.'
+                  : 'Pursuant to national corrections standing orders, legal command transfer takes effect upon joint resources verification and mutual digital sign-off.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setIsPrintModalOpen(true)}
+                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                title="Open print view formatted for prison warden submission"
+              >
+                <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{language === 'fr' ? 'Générer Rapport PDF (Direction)' : 'Generate PDF Shift Report'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Pre-Sign-Off Critical Security Equipment Clearance Protocol Banner */}
@@ -1753,6 +2765,84 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
 
           </div>
 
+        </div>
+      )}
+
+      {/* TAB CONTENT: SECURITY INCIDENT AUDIT (TAMPER-EVIDENT LEDGER) */}
+      {activeTab === 'audit' && (
+        <SecurityIncidentAuditWidget
+          language={language}
+          auditTrail={currentHandover.auditTrail || []}
+          handoverRef={currentHandover.referenceNumber}
+          facilityName={currentHandover.facilityName}
+          date={currentHandover.date}
+          outgoingShift={currentHandover.outgoingShift}
+          incomingShift={currentHandover.incomingShift}
+          compactView={false}
+        />
+      )}
+
+      {/* TAB CONTENT: OFFICER BIOMETRIC CHECK-IN (FINGERPRINT SCANNER & MUSTER LEDGER) */}
+      {activeTab === 'biometrics' && (
+        <OfficerBiometricCheckInWidget
+          language={language}
+          currentShift={currentHandover.outgoingShift}
+          facilityName={currentHandover.facilityName}
+          handoverRef={currentHandover.referenceNumber}
+          checkInRecords={currentHandover.biometricCheckIns || INITIAL_BIOMETRIC_CHECKINS}
+          officersList={INITIAL_SECURITY_OFFICERS}
+          onRecordCheckIn={handleRecordBiometricCheckIn}
+          commanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+          commanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+          compactView={false}
+        />
+      )}
+
+      {/* TAB CONTENT: SHIFT COMMUNICATIONS (FULL-PAGE EMBEDDED CONSOLE) */}
+      {activeTab === 'comms' && (
+        <div className="bg-slate-950 border border-cyan-500/30 rounded-2xl overflow-hidden shadow-2xl p-4 sm:p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-950/80 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shadow-md shadow-cyan-500/20">
+                <Radio className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-white uppercase tracking-wider">
+                  {language === 'fr' ? 'Canal Sécurisé de Transmissions de Relève' : 'Shift Communications Command Console'}
+                </h3>
+                <p className="text-xs text-slate-400 font-mono">
+                  {currentHandover.referenceNumber} &bull; {currentHandover.facilityName} &bull; AES-256-GCM / SHA-256
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>WSS SECURE LINK</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="h-[680px] rounded-xl overflow-hidden border border-slate-800 bg-slate-900 shadow-inner relative flex justify-center">
+            <div className="w-full h-full">
+              <ShiftCommunicationsSidebar
+                isOpen={true}
+                onClose={() => setActiveTab('risks')}
+                handoverId={currentHandover.id}
+                handoverRef={currentHandover.referenceNumber}
+                facilityName={currentHandover.facilityName}
+                outgoingShift={currentHandover.outgoingShift}
+                incomingShift={currentHandover.incomingShift}
+                outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+                outgoingCommanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+                incomingCommanderName={currentHandover.incomingSignOff?.commanderName || 'Capt. Jonathan Hayes'}
+                incomingCommanderBadge={currentHandover.incomingSignOff?.badgeNumber || 'KP-7890'}
+                language={language}
+                onAuditLog={handleChatAuditLog}
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -2120,6 +3210,110 @@ export const ShiftHandoverBrief: React.FC<ShiftHandoverBriefProps> = ({
         language={language}
         onBroadcast={handleBroadcastAlert}
       />
+
+      {/* Voice-to-Text Handover Dictation Modal */}
+      {isVoiceDictationModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl">
+            <HandoverVoiceDictationWidget
+              language={language}
+              onAppendNote={handleAppendHandoverNote}
+              outgoingCommanderName={currentHandover.outgoingSignOff?.commanderName || 'Capt. Marcus Vance'}
+              outgoingCommanderBadge={currentHandover.outgoingSignOff?.badgeNumber || 'KP-8421'}
+              incomingCommanderName={currentHandover.incomingSignOff?.commanderName || 'Capt. Jonathan Hayes'}
+              incomingCommanderBadge={currentHandover.incomingSignOff?.badgeNumber || 'KP-7890'}
+              onClose={() => setIsVoiceDictationModalOpen(false)}
+              isModal={true}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* FLOATING NOTIFICATION: DRAFT CACHE SYNC TOAST */}
+      {cacheSyncToast && (
+        <div className={`fixed top-4 right-4 z-50 p-3.5 rounded-xl shadow-2xl border text-xs font-semibold flex items-center gap-2.5 animate-in slide-in-from-top-3 duration-200 ${
+          cacheSyncToast.type === 'success'
+            ? 'bg-slate-900 text-emerald-300 border-emerald-500/60 shadow-emerald-950/40'
+            : cacheSyncToast.type === 'warning'
+            ? 'bg-slate-900 text-amber-300 border-amber-500/60 shadow-amber-950/40'
+            : 'bg-slate-900 text-cyan-300 border-cyan-500/60 shadow-cyan-950/40'
+        }`}>
+          <Save className="w-4 h-4 shrink-0 text-cyan-400" />
+          <span>{cacheSyncToast.message}</span>
+        </div>
+      )}
+
+      {/* FLOATING WARNING TOAST: CRITICAL INVENTORY SHORTAGE MONITOR */}
+      {isShortageToastVisible && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md w-full bg-slate-900 border-2 border-amber-500/90 rounded-2xl shadow-2xl shadow-amber-950/50 p-4 text-slate-100 animate-in slide-in-from-bottom-5 duration-300">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 shrink-0 animate-pulse">
+              <AlertTriangle className="w-5 h-5 text-amber-400" />
+            </div>
+
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 flex items-center gap-1">
+                  <ShieldAlert className="w-3 h-3 text-amber-400" />
+                  <span>{language === 'fr' ? 'ALERTE PÉNURIE INVENTAIRE' : 'INVENTORY SHORTAGE DETECTED'}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsShortageToastDismissed(true)}
+                  className="text-slate-400 hover:text-white p-1 rounded-md transition-colors cursor-pointer"
+                  title="Dismiss Alert"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <h4 className="text-xs font-bold text-white leading-tight">
+                {language === 'fr'
+                  ? `${criticalInventoryShortages.length} matériel(s) critique(s) sous le seuil réglementaire de sécurité`
+                  : `${criticalInventoryShortages.length} critical security resource(s) below mandatory safety threshold`}
+              </h4>
+
+              <div className="space-y-1 pt-1 max-h-24 overflow-y-auto">
+                {criticalInventoryShortages.slice(0, 3).map(item => (
+                  <div key={item.id} className="text-[11px] font-mono text-slate-300 flex items-center justify-between bg-slate-950/70 px-2 py-1 rounded border border-slate-800">
+                    <span className="truncate max-w-[200px]">{item.name}</span>
+                    <span className="text-amber-400 font-bold shrink-0 ml-1">
+                      {item.countedQty}/{item.expectedQty} {item.unit} {item.condition !== 'operational' ? `(${item.condition})` : ''}
+                    </span>
+                  </div>
+                ))}
+                {criticalInventoryShortages.length > 3 && (
+                  <div className="text-[10px] text-slate-400 italic">
+                    +{criticalInventoryShortages.length - 3} {language === 'fr' ? 'autres matériels signalés' : 'more items affected'}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={handleSnoozeShortageToast}
+                  className="text-[11px] text-slate-400 hover:text-slate-200 transition-colors cursor-pointer font-medium"
+                >
+                  {language === 'fr' ? 'Rappeler dans 5 min' : 'Snooze (5m)'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('equipment');
+                    setIsShortageToastDismissed(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{language === 'fr' ? 'Inspecter & Réconcilier' : 'Inspect & Reconcile'}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

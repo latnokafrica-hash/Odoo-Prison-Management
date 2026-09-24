@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { ShiftHandoverBriefData, Language } from '../types';
 import { INITIAL_HANDOVER_NOTES } from '../data/handoverNotesData';
+import { INITIAL_CONTRABAND_ITEMS } from '../data/contrabandData';
 
 export function generateHandoverPdf(handover: ShiftHandoverBriefData, language: Language = 'en') {
   const doc = new jsPDF({
@@ -38,21 +39,30 @@ export function generateHandoverPdf(handover: ShiftHandoverBriefData, language: 
 
   // Subheader: Shift Transition & Status
   doc.setFillColor(241, 245, 249); // slate-100
-  doc.roundedRect(14, y, 182, 14, 2, 2, 'F');
+  doc.roundedRect(14, y, 182, 16, 2, 2, 'F');
   
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   const shiftText = `${isFr ? 'QUART CÉDANT :' : 'RELIEVED SHIFT :'} ${handover.outgoingShift.toUpperCase()}  -->  ${isFr ? 'QUART PRENANT :' : 'RELIEVING SHIFT :'} ${handover.incomingShift.toUpperCase()}`;
-  doc.text(shiftText, 18, y + 6);
+  doc.text(shiftText, 18, y + 5);
 
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(71, 85, 105);
-  const statusLabel = `${isFr ? 'STATUT HOMOLOGUÉ :' : 'CERTIFIED STATUS :'} ${handover.status.toUpperCase()} | ${isFr ? 'Vérifié double signature' : 'Two-officer verified'}`;
-  doc.text(statusLabel, 18, y + 11);
+  const statusLabel = `${isFr ? 'STATUT HOMOLOGUÉ :' : 'CERTIFIED STATUS :'} ${handover.status.toUpperCase()} | ${isFr ? 'Vérifié double signature' : 'Two-officer verified'} | ${isFr ? 'Règle 14 Ordre Permanent' : 'Standing Orders Rule 14'}`;
+  doc.text(statusLabel, 18, y + 9.5);
 
-  y += 20;
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(67, 56, 202); // indigo-700
+  doc.text(
+    isFr ? 'TRANSMISSION STATUTAIRE : DIRECTEUR DE L\'ÉTABLISSEMENT PÉNITENTIAIRE (WARDEN / OIC)' : 'STATUTORY TRANSMITTAL: THE PRISON WARDEN / OFFICER IN CHARGE (OIC)',
+    18,
+    y + 14
+  );
+
+  y += 22;
 
   // SECTION 1: CUSTODY HEADCOUNT RECONCILIATION
   doc.setFontSize(9);
@@ -88,6 +98,27 @@ export function generateHandoverPdf(handover: ShiftHandoverBriefData, language: 
   });
 
   y += 18;
+
+  // EXECUTIVE SUMMARY PARAGRAPH (GEMINI AI)
+  if (handover.executiveSummaryText) {
+    doc.setFillColor(241, 245, 249);
+    doc.setDrawColor(199, 210, 254);
+    const summaryLines = doc.splitTextToSize(`"${handover.executiveSummaryText}"`, 174);
+    const boxHeight = Math.max(14, summaryLines.length * 3.5 + 8);
+    doc.roundedRect(14, y, 182, boxHeight, 1, 1, 'FD');
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(67, 56, 202);
+    doc.text(isFr ? 'SYNTHÈSE EXÉCUTIVE DU QUART (GEMINI 3.8 FLASH)' : 'SHIFT EXECUTIVE BRIEFING (GEMINI 3.8 FLASH SYNTHESIS)', 18, y + 4.5);
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(30, 41, 59);
+    doc.text(summaryLines, 18, y + 8.5);
+
+    y += boxHeight + 4;
+  }
 
   // SECTION 2: SITUATIONAL FACILITY RISKS
   doc.setFontSize(9);
@@ -199,7 +230,7 @@ export function generateHandoverPdf(handover: ShiftHandoverBriefData, language: 
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(148, 163, 184);
   doc.text(
-    `CONFIDENTIAL - OFFICIAL CORRECTIONAL BRIEFING RECORD (PAGE 1/2) - GENERATED VIA ODOO 19 CORRECTIONS ERP`,
+    `CONFIDENTIAL - OFFICIAL CORRECTIONAL BRIEFING RECORD (PAGE 1/3) - GENERATED VIA ODOO 19 CORRECTIONS ERP`,
     14,
     290
   );
@@ -224,7 +255,7 @@ export function generateHandoverPdf(handover: ShiftHandoverBriefData, language: 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(203, 213, 225);
   doc.text(
-    `${isFr ? 'RÉF :' : 'REF :'} ${handover.referenceNumber} | ${handover.facilityName.toUpperCase()} | ${isFr ? 'PAGE 2 SUR 2' : 'PAGE 2 OF 2'}`,
+    `${isFr ? 'RÉF :' : 'REF :'} ${handover.referenceNumber} | ${handover.facilityName.toUpperCase()} | ${isFr ? 'PAGE 2 SUR 3' : 'PAGE 2 OF 3'}`,
     14,
     15
   );
@@ -363,16 +394,206 @@ export function generateHandoverPdf(handover: ShiftHandoverBriefData, language: 
     doc.text(s.date, x + 3, y + 17.5);
   });
 
+  y += 24;
+
+  // SECTION 7: PRISON WARDEN ENDORSEMENT ORDER
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(15, 23, 42);
+  doc.roundedRect(14, y, 182, 20, 1, 1, 'FD');
+
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 23, 42);
+  doc.text(
+    isFr ? 'DÉCISION DU DIRECTEUR DE L\'ÉTABLISSEMENT (WARDEN EXECUTIVE RATIFICATION)' : 'PRISON WARDEN / OFFICER IN CHARGE (OIC) EXECUTIVE ENDORSEMENT ORDER',
+    18,
+    y + 5
+  );
+
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(71, 85, 105);
+  doc.text(
+    isFr
+      ? 'DIRECTIVES DU DIRECTEUR : Rapport examiné. Vigilance accrue maintenue. Effectifs et trousseaux certifiés conformes.'
+      : 'WARDEN DIRECTIVES: Shift brief verified. Heightened alert posture maintained. Guard posts and master keys certified accurate.',
+    18,
+    y + 10
+  );
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(5, 150, 105); // emerald-600
+  doc.text(
+    handover.governorSignOff 
+      ? `[OFFICIAL PRISON WARDEN RATIFICATION SEAL APPLIED - ${handover.governorSignOff.signedAt}]` 
+      : '[SUBMITTED FOR PRISON WARDEN REVIEW & RATIFICATION]',
+    18,
+    y + 16
+  );
+
   // Footer stamp Page 2
   doc.setFontSize(7);
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(148, 163, 184);
   doc.text(
-    `CONFIDENTIAL - OFFICIAL CORRECTIONAL BRIEFING RECORD (PAGE 2/2) - GENERATED ON ${new Date().toLocaleString()}`,
+    `CONFIDENTIAL - OFFICIAL CORRECTIONAL BRIEFING RECORD (PAGE 2/3) - GENERATED ON ${new Date().toLocaleString()}`,
     14,
     290
   );
 
-  const fileName = `Shift_Handover_Brief_${handover.referenceNumber.replace(/[\/\\]/g, '_')}.pdf`;
+  // PAGE 3: CONTRABAND SEIZED & EVIDENCE CHAIN OF CUSTODY REPORT
+  doc.addPage();
+
+  // Header band Page 3
+  doc.setFillColor(15, 23, 42); // slate-900
+  doc.rect(0, 0, 210, 20, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(
+    isFr ? 'REGISTRE OFFICIEL DES SAISIES DE CONTREBANDE & CHAÎNE DE GARDE' : 'CONTRABAND SEIZED REGISTER & EVIDENCE CHAIN OF CUSTODY',
+    14,
+    9
+  );
+
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(203, 213, 225);
+  doc.text(
+    `${isFr ? 'RÉF :' : 'REF :'} ${handover.referenceNumber} | ${handover.facilityName.toUpperCase()} | ${isFr ? 'PAGE 3 SUR 3' : 'PAGE 3 OF 3'}`,
+    14,
+    15
+  );
+
+  y = 28;
+
+  // SECTION 7: CONTRABAND SEIZED & EVIDENCE LOG (WITH SEVERITY LEVEL)
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 23, 42);
+  doc.text(
+    isFr ? '7. OBJETS SAISIS, CLASSIFICATION DE SÉVÉRITÉ & DISPOSITION LÉGALE' : '7. CONTRABAND CONFISCATIONS, SEVERITY CLASSIFICATION & DISPOSAL STATUS',
+    14,
+    y
+  );
+  y += 5;
+
+  const contrabandList = (handover.contrabandSeized || INITIAL_CONTRABAND_ITEMS).slice(0, 6);
+
+  contrabandList.forEach(item => {
+    // Background card
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(14, y, 182, 25, 1.5, 1.5, 'FD');
+
+    // Severity color
+    const isCrit = item.severityLevel === 'critical';
+    const isHigh = item.severityLevel === 'high';
+    const isMed = item.severityLevel === 'medium';
+    
+    // Header line inside card
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(
+      isCrit ? 185 : isHigh ? 194 : isMed ? 161 : 30, 
+      isCrit ? 28 : isHigh ? 65 : isMed ? 98 : 41, 
+      isCrit ? 28 : isHigh ? 12 : isMed ? 7 : 59
+    );
+    doc.text(`[${item.severityLevel.toUpperCase()} SEVERITY] ${item.chainOfCustodyRef} - ${item.itemDescription}`, 18, y + 5);
+
+    // Right badge for disposal
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(71, 85, 105);
+    doc.text(`STATUS: ${item.disposalStatus.toUpperCase().replace(/_/g, ' ')}`, 140, y + 5);
+
+    // Line 2: Details
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 65, 85);
+    doc.text(
+      `${isFr ? 'Catégorie :' : 'Category :'} ${item.category.toUpperCase().replace(/_/g, ' ')} | ${isFr ? 'Quantité :' : 'Quantity :'} ${item.quantity} ${item.unit} | ${isFr ? 'Lieu :' : 'Location :'} ${item.seizedLocation} (${item.seizedAt})`,
+      18,
+      y + 9.5
+    );
+
+    // Line 3: Inmate involved & officer
+    doc.setTextColor(71, 85, 105);
+    doc.text(
+      `${isFr ? 'Détenu impliqué :' : 'Inmate Involved :'} ${item.seizedFromInmateName ? `${item.seizedFromInmateName} (${item.seizedFromInmateId || 'Matricule'})` : (isFr ? 'Non identifié / Zone commune' : 'Unclaimed / Common Area')} | ${isFr ? 'Saisi par :' : 'Seized by :'} ${item.seizedByOfficer} (${item.seizedByBadge})`,
+      18,
+      y + 14
+    );
+
+    // Line 4: Storage & chain of custody
+    doc.setTextColor(30, 41, 59);
+    doc.setFont('helvetica', 'bold');
+    doc.text(
+      `${isFr ? 'Stockage :' : 'Storage Vault :'} ${item.storageLocation} | ${isFr ? 'Réf. Chaîne de Garde :' : 'Custody Docket :'} #${item.chainOfCustodyRef}`,
+      18,
+      y + 18.5
+    );
+
+    // Notes
+    if (item.notes) {
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100, 116, 139);
+      doc.text(`${isFr ? 'Observations :' : 'Notes :'} ${item.notes.substring(0, 95)}`, 18, y + 22.5);
+    }
+
+    y += 28;
+  });
+
+  y += 3;
+
+  // Evidence custody declaration
+  doc.setFillColor(241, 245, 249);
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, y, 182, 34, 1.5, 1.5, 'FD');
+
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 23, 42);
+  doc.text(
+    isFr ? 'DÉCLARATION LÉGALE DE CHAÎNE DE GARDE DES SCELLÉS (ART. 48 RÈGLEMENT PÉNITENTIAIRE)' : 'EVIDENCE RETENTION & CHAIN OF CUSTODY STATUTORY AFFIDAVIT (RULE 14 & POLICE ACT)',
+    18,
+    y + 6
+  );
+
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(71, 85, 105);
+  doc.text(
+    isFr
+      ? 'Je soussigné certifie que tous les articles prohibés ci-dessus ont été saisis contradictoirement, pesés/enregistrés et consignés sous scellés dans le coffre d\'armurerie ou le casier d\'évidence. Aucune rupture de chaîne de garde constatée.'
+      : 'I hereby certify that all contraband items seized during this shift have been weighed, cataloged, cross-checked with incident logs, and secured under dual-custody seal in the evidence vault pending judicial transmittal or destruction.',
+    18,
+    y + 11,
+    { maxWidth: 174 }
+  );
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 23, 42);
+  doc.text(
+    isFr ? 'OFFICIER AUX PREUVES & SCELLÉS : ___________________________      VISÉ DIRECTEUR / OIC : ___________________________' : 'EVIDENCE & ARMORY OFFICER : ___________________________      SUPERINTENDENT / OIC : ___________________________',
+    18,
+    y + 28
+  );
+
+  // Footer stamp Page 3
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(148, 163, 184);
+  doc.text(
+    `CONFIDENTIAL - OFFICIAL CORRECTIONAL BRIEFING RECORD (PAGE 3/3) - GENERATED ON ${new Date().toLocaleString()}`,
+    14,
+    290
+  );
+
+  const fileName = `Shift_Handover_Warden_Report_${handover.referenceNumber.replace(/[\/\\]/g, '_')}.pdf`;
   doc.save(fileName);
 }

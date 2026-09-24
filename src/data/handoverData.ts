@@ -1,6 +1,9 @@
 import { ShiftHandoverBriefData, FacilityRiskItem, PendingTaskItem, EquipmentInventoryItem } from '../types';
 import { INITIAL_TIMELINE_EVENTS } from './timelineData';
 import { INITIAL_HANDOVER_NOTES } from './handoverNotesData';
+import { INITIAL_CONTRABAND_ITEMS } from './contrabandData';
+import { createInitialAuditTrail } from '../utils/securityAuditLogger';
+import { INITIAL_BIOMETRIC_CHECKINS } from './biometricAttendanceData';
 
 export const INITIAL_FACILITY_RISKS: FacilityRiskItem[] = [
   {
@@ -313,9 +316,12 @@ export const INITIAL_EQUIPMENT_INVENTORY: EquipmentInventoryItem[] = [
     expectedQty: 16,
     countedQty: 15,
     unit: 'helmets',
-    condition: 'maintenance',
+    condition: 'damaged',
     storageLocation: 'Standby Ready Room',
-    discrepancyNote: 'Helmet #H-09 sent to logistics workshop for replacement chinstrap rivet.',
+    workOrderRef: 'WO-2026-0894',
+    workOrderStatus: 'pending',
+    workOrderTriggeredAt: '2026-09-19T13:20:00Z',
+    discrepancyNote: '[AUTO WORK ORDER WO-2026-0894] Helmet #H-09 cracked polycarbonate face shield & broken chinstrap rivet during Cell Block C riot drill. Immediate armory replacement dispatched.',
     verifiedByBoth: true,
     criticality: 'high',
     lastInspectedAt: '13:20',
@@ -457,6 +463,7 @@ export const INITIAL_HANDOVER_BRIEFS: ShiftHandoverBriefData[] = [
     risks: INITIAL_FACILITY_RISKS,
     tasks: INITIAL_PENDING_TASKS,
     equipment: INITIAL_EQUIPMENT_INVENTORY,
+    contrabandSeized: INITIAL_CONTRABAND_ITEMS,
     timelineEvents: INITIAL_TIMELINE_EVENTS,
     handoverNotes: INITIAL_HANDOVER_NOTES,
     outgoingSignOff: {
@@ -473,6 +480,8 @@ export const INITIAL_HANDOVER_BRIEFS: ShiftHandoverBriefData[] = [
     },
     incomingSignOff: null,
     governorSignOff: null,
+    auditTrail: createInitialAuditTrail(),
+    biometricCheckIns: INITIAL_BIOMETRIC_CHECKINS,
     generalNotes: 'Shift changeover muster assembled at 13:45 in the central parade ground. All 28 master keys inspected jointly by both commanders.',
     createdAt: '2026-09-19 13:30:00',
     updatedAt: '2026-09-19 13:55:20',
@@ -500,6 +509,7 @@ export const INITIAL_HANDOVER_BRIEFS: ShiftHandoverBriefData[] = [
     risks: INITIAL_FACILITY_RISKS.slice(0, 3),
     tasks: INITIAL_PENDING_TASKS.slice(0, 3).map(t => ({ ...t, status: 'completed' as const })),
     equipment: INITIAL_EQUIPMENT_INVENTORY,
+    contrabandSeized: INITIAL_CONTRABAND_ITEMS.slice(0, 4),
     handoverNotes: INITIAL_HANDOVER_NOTES.slice(0, 4),
     outgoingSignOff: {
       commanderId: 'off-108',
@@ -534,6 +544,8 @@ export const INITIAL_HANDOVER_BRIEFS: ShiftHandoverBriefData[] = [
       declarationConfirmed: true,
       handoverNotes: 'Handover ratified. Dispatched maintenance crew for Tower 4.',
     },
+    auditTrail: createInitialAuditTrail(),
+    biometricCheckIns: INITIAL_BIOMETRIC_CHECKINS,
     generalNotes: 'Certified by Senior Superintendent of Prisons.',
     createdAt: '2026-09-19 05:30:00',
     updatedAt: '2026-09-19 08:30:00',

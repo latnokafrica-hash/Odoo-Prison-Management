@@ -746,7 +746,28 @@ export type EquipmentCategory =
   | 'body_cameras' 
   | 'restraints_cuffs';
 
-export type EquipmentCondition = 'operational' | 'defective' | 'missing' | 'maintenance';
+export type EquipmentCondition = 'operational' | 'defective' | 'missing' | 'maintenance' | 'damaged' | 'needs_maintenance';
+
+export interface AssetMaintenanceLog {
+  id: string;
+  date: string;
+  technician: string;
+  serviceType: 'Routine Inspection' | 'Preventative Service' | 'Corrective Repair' | 'Emergency Calibration' | 'Parts Replacement';
+  description: string;
+  status: 'passed' | 'repaired' | 'escalated' | 'decommissioned';
+  workOrderRef?: string;
+  partsReplaced?: string[];
+  nextServiceDueDate?: string;
+}
+
+export interface AssetHistoryEvent {
+  id: string;
+  timestamp: string;
+  event: 'Procured' | 'Initial Calibration' | 'Deployed to Post' | 'Checked Out' | 'Shift Verified' | 'Condition Flagged' | 'Sent to Workshop' | 'Audit Reconciled';
+  officer: string;
+  location: string;
+  details: string;
+}
 
 export interface EquipmentInventoryItem {
   id: string;
@@ -765,6 +786,60 @@ export interface EquipmentInventoryItem {
   criticality?: 'critical' | 'high' | 'standard';
   batteryLevel?: number; // for radios/body cameras
   sealNumber?: string; // for key rings and armory lockboxes
+  workOrderRef?: string;
+  workOrderStatus?: 'pending' | 'in_progress' | 'completed';
+  workOrderTriggeredAt?: string;
+  // Asset Management & QR Code Tracking
+  assetTag?: string; // e.g. 'AST-KEY-001', 'AST-RAD-044'
+  qrCode?: string;   // e.g. 'PRISON-ASSET:AST-KEY-001:LOCKBOX-A'
+  manufacturer?: string;
+  modelNumber?: string;
+  assignedCustodian?: string;
+  warrantyExpiry?: string;
+  nextServiceDueDate?: string;
+  maintenanceLogs?: AssetMaintenanceLog[];
+  assetHistory?: AssetHistoryEvent[];
+}
+
+// Contraband Seized Tracking & Incident Classification Types
+export type ContrabandSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export type ContrabandCategory = 
+  | 'weapons_shanks' 
+  | 'narcotics_drugs' 
+  | 'unauthorized_electronics' 
+  | 'illicit_cash' 
+  | 'altered_tools' 
+  | 'alcohol_brew' 
+  | 'communication_media' 
+  | 'other_prohibited';
+
+export type ContrabandDisposalStatus = 
+  | 'secured_in_evidence' 
+  | 'pending_forensics' 
+  | 'transferred_to_police' 
+  | 'slated_for_destruction' 
+  | 'destroyed' 
+  | 'internal_disciplinary_hold';
+
+export interface ContrabandItem {
+  id: string;
+  itemDescription: string;
+  category: ContrabandCategory;
+  severityLevel: ContrabandSeverity; // 'low' | 'medium' | 'high' | 'critical'
+  quantity: number;
+  unit: string;
+  storageLocation: string; // e.g., "Evidence Locker Alpha-03", "Armory Secure Vault 2"
+  disposalStatus: ContrabandDisposalStatus;
+  seizedLocation: string; // e.g., "Block B - Cell 204", "Yard 2 Drainage Grate"
+  seizedFromInmateName?: string;
+  seizedFromInmateId?: string;
+  seizedByOfficer: string;
+  seizedByBadge: string;
+  seizedAt: string; // e.g., "09:40"
+  chainOfCustodyRef: string; // e.g., "EVD-2026-0842"
+  incidentRef?: string;
+  notes?: string;
 }
 
 export interface CommanderSignOff {
@@ -857,6 +932,73 @@ export interface ShiftStaffingRequirement {
   recommendedAction?: string;
 }
 
+export type SecurityAuditActionCategory = 
+  | 'session_lifecycle'
+  | 'headcount_reconciliation'
+  | 'risk_assessment'
+  | 'custodial_tasks'
+  | 'inventory_armory'
+  | 'contraband_evidence'
+  | 'executive_command'
+  | 'digital_signatures'
+  | 'emergency_tactical'
+  | 'meteorological'
+  | 'biometric_attendance'
+  | 'secure_communications';
+
+export type BiometricScanStatus = 'verified' | 'unverified' | 'rejected' | 'manual_override';
+
+export interface BiometricCheckInRecord {
+  id: string;
+  officerId: string;
+  officerName: string;
+  badgeNumber: string;
+  rank: OfficerRank;
+  role: string;
+  assignedSector: string;
+  assignedPost: string;
+  shift: ShiftType;
+  checkInTimestamp: string; // e.g. "2026-09-19 13:42:18"
+  checkInTime: string; // e.g. "13:42"
+  isoTimestamp: string;
+  biometricType: 'fingerprint_optical' | 'fingerprint_capacitive' | 'fingerprint_ultrasonic';
+  scannerTerminalId: string; // e.g. "BIO-SCAN-GATE-01"
+  confidenceScore: number; // e.g. 99.4
+  minutiaePointsMatched: number; // e.g. 72
+  verificationStatus: BiometricScanStatus;
+  dutyStatusAssigned: OfficerDutyStatus;
+  fingerScanned: 'Right Index' | 'Right Thumb' | 'Left Index' | 'Left Thumb';
+  verificationHash: string; // SHA-256 seal
+  bodyTempDegC?: number; // Vital check e.g. 36.6
+  overrideReason?: string;
+  verifiedByCommander?: string;
+  notes?: string;
+}
+
+export type SecurityAuditSeverity = 'routine' | 'elevated' | 'critical';
+
+export interface SecurityIncidentAuditEntry {
+  id: string;
+  sequenceNumber: number;
+  timestamp: string;
+  isoTimestamp: string;
+  actionCategory: SecurityAuditActionCategory;
+  actionName: string;
+  actorName: string;
+  actorBadge: string;
+  actorRole: string;
+  ipOrTerminalId: string;
+  entityId?: string;
+  entityType: string;
+  previousValue?: string;
+  newValue?: string;
+  changeSummary: string;
+  severity: SecurityAuditSeverity;
+  prevHash: string;
+  entryHash: string;
+  isVerifiedIntegrity?: boolean;
+}
+
 export interface ShiftHandoverBriefData {
   id: string;
   referenceNumber: string;
@@ -880,6 +1022,7 @@ export interface ShiftHandoverBriefData {
   risks: FacilityRiskItem[];
   tasks: PendingTaskItem[];
   equipment: EquipmentInventoryItem[];
+  contrabandSeized?: ContrabandItem[];
   personnelSummary?: {
     staffing: ShiftStaffingRequirement;
     officers: SecurityOfficer[];
@@ -887,12 +1030,30 @@ export interface ShiftHandoverBriefData {
   };
   timelineEvents?: ShiftTimelineEvent[];
   handoverNotes?: ShiftHandoverNote[];
+  auditTrail?: SecurityIncidentAuditEntry[];
+  biometricCheckIns?: BiometricCheckInRecord[];
+  chatMessages?: ShiftChatMessage[];
+  executiveSummaryText?: string;
+  executiveSummaryGeneratedAt?: string;
   outgoingSignOff: CommanderSignOff | null;
   incomingSignOff: CommanderSignOff | null;
   governorSignOff: CommanderSignOff | null;
   generalNotes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ShiftExecutiveSummaryPayload {
+  summary: string;
+  generatedAt: string;
+  model: string;
+  sourceCounts: {
+    contrabandCount: number;
+    mandatoryTasksCount: number;
+    digitalNotesCount: number;
+    criticalThreatsCount: number;
+  };
+  isLiveAi: boolean;
 }
 
 // Shift Handover Notes: Structured Commander Directives & Observations
@@ -950,6 +1111,9 @@ export interface ShiftHandoverNote {
   isAcknowledgedByIncoming?: boolean;
   acknowledgedAt?: string;
   acknowledgedBy?: string;
+  audioDictated?: boolean;
+  audioDurationSeconds?: number;
+  transcriptionConfidence?: number;
 }
 
 // Shift Interactive Timeline & Chronological Operational Log
@@ -1141,4 +1305,56 @@ export interface FacilityHotspotMetrics {
   overallFacilityRiskScore: number; // 0-100
   criticalActiveThreats: number;
 }
+
+// ----------------------------------------------------
+// Shift Communications Secure Chat Types
+// ----------------------------------------------------
+export type CommanderChatRole = 'outgoing_commander' | 'incoming_commander' | 'superintendent' | 'armory_lead';
+
+export type ChatMessagePriority = 'routine' | 'urgent' | 'critical';
+
+export type ChatMessageType = 
+  | 'text' 
+  | 'tactical_directive' 
+  | 'key_handover_query' 
+  | 'contraband_alert' 
+  | 'headcount_verification' 
+  | 'signoff_readiness';
+
+export interface ShiftChatMessage {
+  id: string;
+  handoverId: string;
+  senderCommander: string;
+  senderBadge: string;
+  senderRole: CommanderChatRole;
+  senderCallSign?: string;
+  content: string;
+  ciphertext?: string;
+  encryptionIv?: string;
+  encryptionAlgorithm: 'AES-256-GCM / SHA-256' | 'AES-GCM-256';
+  isEncrypted: boolean;
+  timestamp: string; // HH:mm:ss
+  isoTimestamp: string;
+  priority: ChatMessagePriority;
+  messageType: ChatMessageType;
+  cryptoSeal: string; // SHA-256 tamper-evident seal
+  isReadByOtherCommander?: boolean;
+  acknowledgedBy?: string[];
+  referenceEntity?: {
+    type: 'risk' | 'task' | 'equipment' | 'contraband' | 'inmate';
+    id: string;
+    title: string;
+  };
+}
+
+export interface CommanderPresenceState {
+  commanderId: string;
+  commanderName: string;
+  badgeNumber: string;
+  role: CommanderChatRole;
+  isOnline: boolean;
+  lastActive: string;
+  isTyping: boolean;
+}
+
 

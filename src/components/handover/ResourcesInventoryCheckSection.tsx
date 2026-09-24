@@ -4,8 +4,13 @@ import {
   EquipmentCategory, 
   EquipmentCondition, 
   Language, 
-  ShiftType 
+  ShiftType,
+  ContrabandItem,
+  ContrabandSeverity,
+  ContrabandDisposalStatus,
+  Inmate
 } from '../../types';
+import { ContrabandSeizedTable } from './ContrabandSeizedTable';
 import { 
   Key, 
   Radio, 
@@ -36,12 +41,20 @@ import {
   LayoutGrid,
   List,
   Flame,
-  X
+  X,
+  PackageCheck,
+  QrCode,
+  Scan,
+  ScanLine,
+  Wrench
 } from 'lucide-react';
+import { AssetQrScannerModal } from './AssetQrScannerModal';
 
 interface ResourcesInventoryCheckSectionProps {
   language: Language;
   equipment: EquipmentInventoryItem[];
+  contrabandItems?: ContrabandItem[];
+  inmates?: Inmate[];
   outgoingShift: ShiftType;
   incomingShift: ShiftType;
   outgoingCommanderName?: string;
@@ -53,6 +66,12 @@ interface ResourcesInventoryCheckSectionProps {
   onToggleVerification: (id: string) => void;
   onVerifyAllMatching: () => void;
   onAddEquipmentItem: (newItem: EquipmentInventoryItem) => void;
+  onUpdateEquipmentItem?: (updatedItem: EquipmentInventoryItem) => void;
+  onUpdateContrabandSeverity?: (itemId: string, newSeverity: ContrabandSeverity) => void;
+  onUpdateContrabandDisposalStatus?: (itemId: string, newStatus: ContrabandDisposalStatus) => void;
+  onAddContrabandItem?: (newItem: ContrabandItem) => void;
+  onDeleteContrabandItem?: (itemId: string) => void;
+  defaultSubSection?: 'equipment' | 'contraband';
   onProceedToSignOff?: () => void;
   compactView?: boolean;
 }
@@ -60,6 +79,8 @@ interface ResourcesInventoryCheckSectionProps {
 export const ResourcesInventoryCheckSection: React.FC<ResourcesInventoryCheckSectionProps> = ({
   language,
   equipment,
+  contrabandItems = [],
+  inmates = [],
   outgoingShift,
   incomingShift,
   outgoingCommanderName = 'Capt. Marcus Vance',
@@ -71,9 +92,18 @@ export const ResourcesInventoryCheckSection: React.FC<ResourcesInventoryCheckSec
   onToggleVerification,
   onVerifyAllMatching,
   onAddEquipmentItem,
+  onUpdateEquipmentItem,
+  onUpdateContrabandSeverity,
+  onUpdateContrabandDisposalStatus,
+  onAddContrabandItem,
+  onDeleteContrabandItem,
+  defaultSubSection = 'equipment',
   onProceedToSignOff,
   compactView = false,
 }) => {
+  // Sub-Section Switcher: Equipment vs Contraband Seized Table
+  const [activeSubSection, setActiveSubSection] = useState<'equipment' | 'contraband'>(defaultSubSection);
+
   // Filters & View State
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -81,6 +111,10 @@ export const ResourcesInventoryCheckSection: React.FC<ResourcesInventoryCheckSec
   const [filterUnverifiedOnly, setFilterUnverifiedOnly] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [quickTestMessage, setQuickTestMessage] = useState<string | null>(null);
+
+  // QR Code Scanner & Asset History Modal State
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState<boolean>(false);
+  const [qrModalTargetItem, setQrModalTargetItem] = useState<EquipmentInventoryItem | null>(null);
 
   // Modal State for adding new item or logging discrepancy
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -268,8 +302,74 @@ export const ResourcesInventoryCheckSection: React.FC<ResourcesInventoryCheckSec
   return (
     <div className="space-y-5">
       
-      {/* SECTION HEADER & CRITICAL MANDATE BANNER */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-xl p-5 text-white shadow-lg border border-slate-800">
+      {/* SECTION SUB-MODULE SWITCHER: EQUIPMENT AUDIT vs CONTRABAND SEIZED REGISTER */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg">
+          <button
+            type="button"
+            onClick={() => setActiveSubSection('equipment')}
+            className={`px-3.5 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeSubSection === 'equipment'
+                ? 'bg-white text-indigo-900 shadow-xs ring-1 ring-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Key className="w-3.5 h-3.5 text-amber-500" />
+            <span>{language === 'fr' ? 'Inventaire Clés & Armurerie' : 'Security Keys & Equipment Inventory'}</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-indigo-50 text-indigo-700">
+              {equipment.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubSection('contraband')}
+            className={`px-3.5 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeSubSection === 'contraband'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-rose-600'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span>{language === 'fr' ? 'Saisies de Contrebande' : 'Contraband Seized & Evidence Log'}</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+              activeSubSection === 'contraband' ? 'bg-rose-800 text-white' : 'bg-rose-100 text-rose-800'
+            }`}>
+              {contrabandItems.length}
+            </span>
+            {contrabandItems.some(i => i.severityLevel === 'critical') && (
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" title="Critical Contraband Logged" />
+            )}
+          </button>
+        </div>
+
+        <div className="text-[11px] text-slate-500 px-2 flex items-center gap-1.5">
+          <Shield className="w-3.5 h-3.5 text-indigo-500" />
+          <span>
+            {activeSubSection === 'equipment'
+              ? (language === 'fr' ? 'Contrôle physique des dotations et scellés' : 'Joint verification of custodial arms and keys')
+              : (language === 'fr' ? 'Classification de sévérité et chaîne de garde' : 'Incident severity classification & chain of custody')}
+          </span>
+        </div>
+      </div>
+
+      {activeSubSection === 'contraband' ? (
+        <ContrabandSeizedTable
+          language={language}
+          items={contrabandItems}
+          inmates={inmates}
+          currentOfficerName={outgoingCommanderName}
+          currentOfficerBadge={outgoingCommanderBadge}
+          onUpdateSeverity={onUpdateContrabandSeverity || (() => {})}
+          onUpdateDisposalStatus={onUpdateContrabandDisposalStatus || (() => {})}
+          onAddItem={onAddContrabandItem || (() => {})}
+          onDeleteItem={onDeleteContrabandItem}
+          compactView={compactView}
+        />
+      ) : (
+        <>
+          {/* SECTION HEADER & CRITICAL MANDATE BANNER */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-xl p-5 text-white shadow-lg border border-slate-800">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs font-mono text-indigo-300">
@@ -632,6 +732,19 @@ export const ResourcesInventoryCheckSection: React.FC<ResourcesInventoryCheckSec
               <span>{language === 'fr' ? 'Non Pointés' : 'Pending Only'}</span>
             </button>
 
+            {/* Scan Asset QR Code Button */}
+            <button
+              onClick={() => {
+                setQrModalTargetItem(null);
+                setIsQrScannerOpen(true);
+              }}
+              className="px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer ring-1 ring-cyan-400/30"
+              title={language === 'fr' ? 'Scanner un QR code pour ouvrir l\'historique d\'actif et les fiches de maintenance' : 'Scan QR code to pull full asset history and maintenance logs'}
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>{language === 'fr' ? 'Scanner QR Actif' : 'Scan Asset QR'}</span>
+            </button>
+
             {/* Add New Equipment Button */}
             <button
               onClick={() => setIsAddModalOpen(true)}
@@ -820,10 +933,25 @@ export const ResourcesInventoryCheckSection: React.FC<ResourcesInventoryCheckSec
                     </button>
                   </div>
 
-                  {/* Title & Storage */}
-                  <h3 className="text-sm font-bold text-slate-900 leading-snug">
-                    {item.name}
-                  </h3>
+                  {/* Title & Storage & QR Tag */}
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-bold text-slate-900 leading-snug">
+                      {item.name}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQrModalTargetItem(item);
+                        setIsQrScannerOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-300 hover:bg-cyan-100 hover:border-cyan-400 transition-colors cursor-pointer shrink-0"
+                      title={language === 'fr' ? 'Consulter le dossier QR, l\'historique et la maintenance' : 'Open QR asset history & maintenance ledger'}
+                    >
+                      <QrCode className="w-3 h-3 text-cyan-600" />
+                      <span>{item.assetTag || 'QR'}</span>
+                    </button>
+                  </div>
+
                   <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-500">
                     <span>{item.storageLocation}</span>
                     {item.sealNumber && (
@@ -1006,7 +1134,21 @@ export const ResourcesInventoryCheckSection: React.FC<ResourcesInventoryCheckSec
                       </td>
 
                       <td className="p-3">
-                        <strong className="text-slate-900 block font-semibold">{item.name}</strong>
+                        <div className="flex items-center justify-between gap-2">
+                          <strong className="text-slate-900 block font-semibold">{item.name}</strong>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQrModalTargetItem(item);
+                              setIsQrScannerOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[9px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-300 hover:bg-cyan-100 transition-colors cursor-pointer shrink-0"
+                            title={language === 'fr' ? 'Consulter le dossier QR et la maintenance' : 'Open QR asset history & maintenance'}
+                          >
+                            <QrCode className="w-2.5 h-2.5 text-cyan-600" />
+                            <span>{item.assetTag || 'QR'}</span>
+                          </button>
+                        </div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
                           <span>{item.storageLocation}</span>
                           {item.sealNumber && (
@@ -1295,6 +1437,10 @@ export const ResourcesInventoryCheckSection: React.FC<ResourcesInventoryCheckSec
         </div>
       )}
 
+      {/* Close conditional equipment sub-section */}
+      </>
+      )}
+
       {/* MODAL: EDIT DISCREPANCY NOTE */}
       {isNoteModalOpen && activeEditingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">
@@ -1352,6 +1498,20 @@ export const ResourcesInventoryCheckSection: React.FC<ResourcesInventoryCheckSec
           </div>
         </div>
       )}
+
+      {/* ASSET QR SCANNER & MAINTENANCE DOSSIER MODAL */}
+      <AssetQrScannerModal
+        isOpen={isQrScannerOpen}
+        onClose={() => {
+          setIsQrScannerOpen(false);
+          setQrModalTargetItem(null);
+        }}
+        language={language}
+        equipment={equipment}
+        initialSelectedItem={qrModalTargetItem}
+        onUpdateCondition={onUpdateCondition}
+        onUpdateItemLogs={onUpdateEquipmentItem}
+      />
 
     </div>
   );

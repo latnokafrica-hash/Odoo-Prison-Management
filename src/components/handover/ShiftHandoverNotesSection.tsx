@@ -28,8 +28,10 @@ import {
   Calendar,
   Building2,
   HardHat,
-  HelpCircle
+  HelpCircle,
+  Mic
 } from 'lucide-react';
+import { HandoverVoiceDictationWidget } from './HandoverVoiceDictationWidget';
 import { 
   ShiftHandoverNote, 
   HandoverNoteCategory, 
@@ -74,6 +76,7 @@ export const ShiftHandoverNotesSection: React.FC<ShiftHandoverNotesSectionProps>
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isAddNoteModalOpen, setIsAddNoteModalOpen] = useState(false);
   const [copiedNoteId, setCopiedNoteId] = useState<string | null>(null);
+  const [showVoiceDictation, setShowVoiceDictation] = useState(false);
 
   // New Note Form State
   const [newCategory, setNewCategory] = useState<HandoverNoteCategory>('inmate_watch');
@@ -400,6 +403,23 @@ export const ShiftHandoverNotesSection: React.FC<ShiftHandoverNotesSectionProps>
 
             <button
               type="button"
+              onClick={() => setShowVoiceDictation(!showVoiceDictation)}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border shadow-xs active:scale-95 ${
+                showVoiceDictation
+                  ? 'bg-rose-600 text-white border-rose-500 shadow-rose-950/40'
+                  : 'bg-slate-800 hover:bg-slate-700 text-rose-300 border-slate-700'
+              }`}
+              title={language === 'fr' ? 'Activer la dictée vocale temps réel' : 'Toggle real-time voice-to-text dictation'}
+            >
+              <Mic className="w-4 h-4 animate-pulse text-rose-400" />
+              <span>{language === 'fr' ? 'Dicter en Direct' : 'Dictate with Voice'}</span>
+              <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 font-mono">
+                MIC
+              </span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => {
                 resetForm();
                 setIsAddNoteModalOpen(true);
@@ -497,6 +517,25 @@ export const ShiftHandoverNotesSection: React.FC<ShiftHandoverNotesSectionProps>
           </div>
         </div>
       </div>
+
+      {/* Voice-to-Text Dictation Deck */}
+      {showVoiceDictation && (
+        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+          <HandoverVoiceDictationWidget
+            language={language}
+            onAppendNote={(newNote) => {
+              onAppendNote(newNote);
+              setShowVoiceDictation(false);
+            }}
+            outgoingCommanderName={outgoingCommanderName}
+            outgoingCommanderBadge={outgoingCommanderBadge}
+            incomingCommanderName={incomingCommanderName}
+            incomingCommanderBadge={incomingCommanderBadge}
+            onClose={() => setShowVoiceDictation(false)}
+            isModal={false}
+          />
+        </div>
+      )}
 
       {/* Filter and Category Controls */}
       <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
@@ -686,6 +725,19 @@ export const ShiftHandoverNotesSection: React.FC<ShiftHandoverNotesSectionProps>
                       <MapPin className="w-3.5 h-3.5 text-slate-400" />
                       <span>{note.location}</span>
                     </span>
+
+                    {note.audioDictated && (
+                      <>
+                        <span className="text-slate-300">|</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1 shadow-2xs">
+                          <Mic className="w-3 h-3 text-rose-500 animate-pulse" />
+                          <span>{language === 'fr' ? 'Dictée Vocale' : 'Voice Dictated'}</span>
+                          {note.audioDurationSeconds && (
+                            <span className="text-indigo-400 font-mono text-[9px]">({note.audioDurationSeconds}s)</span>
+                          )}
+                        </span>
+                      </>
+                    )}
 
                     <span className="text-slate-300">|</span>
 

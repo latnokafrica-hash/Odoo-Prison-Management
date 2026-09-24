@@ -87,3 +87,37 @@
   }
 }
 
+/* Biometric Scanner Animations */
+@keyframes laserSweep {
+  0% {
+    top: 4%;
+    opacity: 0.8;
+  }
+  50% {
+    top: 92%;
+    opacity: 1;
+  }
+  100% {
+    top: 4%;
+    opacity: 0.8;
+  }
+}
+
+.animate-laser-sweep {
+  animation: laserSweep 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes scanGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(6, 182, 212, 0.4), inset 0 0 15px rgba(6, 182, 212, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.8), inset 0 0 25px rgba(6, 182, 212, 0.5);
+  }
+}
+
+.animate-scan-glow {
+  animation: scanGlow 1.8s ease-in-out infinite;
+}
+
+
